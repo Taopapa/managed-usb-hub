@@ -1,0 +1,18 @@
+{
+  "name": "managed-usb-hub-wails",
+  "outputfilename": "Managed USB Hub",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Your Name",
+    "email": "hello@example.com"
+  },
+  "info": {
+    "companyName": "My Company",
+    "productName": "Managed USB Hub",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright 2024"
+  }
+}
