@@ -50,7 +50,7 @@ jobs:
 
       - name: Build GUI App
         run: |
-          wails build -platform ${{ matrix.platform }}
+          wails build -platform ${{ matrix.platform }} -tags webkit2_41
 
       - name: Build CLI Tool
         shell: bash
