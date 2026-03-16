@@ -14,10 +14,6 @@ export function ClearLogFile(arg1) {
   return window['go']['main']['App']['ClearLogFile'](arg1);
 }
 
-export function CloseCurrentPort() {
-  return window['go']['main']['App']['CloseCurrentPort']();
-}
-
 export function ClosePort(arg1) {
   return window['go']['main']['App']['ClosePort'](arg1);
 }

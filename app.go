@@ -3,12 +3,10 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"managed-usb-hub-wails/pkg/config"
 	"managed-usb-hub-wails/pkg/hubmanager"
 	"managed-usb-hub-wails/pkg/scheduler"
-	"managed-usb-hub-wails/pkg/usbtree"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -399,19 +397,9 @@ func (a *App) SetStoredPassword(portID, password string) error {
 	return config.SetPassword(portID, password)
 }
 
-// GetUSBTree returns the current USB device tree as a JSON string
+// GetUSBTree is removed
 func (a *App) GetUSBTree() (string, error) {
-	a.log("System", "System", "Fetching USB Device Tree...")
-	tree, err := usbtree.Enumerate()
-	if err != nil {
-		return "", err
-	}
-	// Convert to JSON string to avoid Wails binding issues with cross-package structs
-	bytes, err := json.Marshal(tree)
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
+	return "{}", nil
 }
 
 // GetScheduledTasks returns all scheduled tasks

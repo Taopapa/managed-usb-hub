@@ -9,8 +9,6 @@ export function AutoSearchProbe():Promise<Array<hubmanager.DeviceInfo>>;
 
 export function ClearLogFile(arg1:string):Promise<void>;
 
-export function CloseCurrentPort():Promise<void>;
-
 export function ClosePort(arg1:string):Promise<void>;
 
 export function GetScheduledTasks():Promise<Array<config.ScheduledTask>>;
