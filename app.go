@@ -10,7 +10,9 @@ import (
 	"managed-usb-hub-wails/pkg/scheduler"
 	"managed-usb-hub-wails/pkg/usbtree"
 	"os"
+	"os/exec"
 	"path/filepath"
+	stdruntime "runtime"
 	"strings"
 	"sync"
 	"time"
@@ -44,6 +46,49 @@ func NewApp() *App {
 	return a
 }
 
+// OpenSystemTerminal opens a system terminal window in the application directory
+func (a *App) OpenSystemTerminal() error {
+	var cmd *exec.Cmd
+	var args []string
+
+	// Get current working directory or executable directory
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	if stdruntime.GOOS == "windows" {
+		// On Windows, start cmd.exe
+		// /c start cmd.exe opens a new window
+		// Or just start cmd.exe directly
+		// To open in current directory: start cmd.exe /k "cd /d <dir>"
+		args = []string{"/c", "start", "cmd.exe", "/k", fmt.Sprintf("cd /d %s", dir)}
+		cmd = exec.Command("cmd", args...)
+	} else if stdruntime.GOOS == "darwin" {
+		// On macOS, open Terminal
+		cmd = exec.Command("open", "-a", "Terminal", dir)
+	} else {
+		// On Linux, try common terminals
+		// This is tricky as there are many terminals.
+		// Try x-terminal-emulator if available, or gnome-terminal, or konsole
+		terminals := []string{"x-terminal-emulator", "gnome-terminal", "konsole", "xterm"}
+		found := false
+		for _, term := range terminals {
+			if _, err := exec.LookPath(term); err == nil {
+				cmd = exec.Command(term)
+				cmd.Dir = dir
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("no supported terminal emulator found")
+		}
+	}
+
+	return cmd.Start()
+}
+
 // executeScheduledTask executes the scheduled task
 func (a *App) executeScheduledTask(deviceID string, mask string) error {
 	password := a.GetStoredPassword(deviceID)
@@ -71,32 +116,6 @@ func (a *App) executeScheduledTask(deviceID string, mask string) error {
 
 	cmd := fmt.Sprintf("SP%s%s", password, cmdMask)
 
-	// Check if already connected to this device
-	// HubManager doesn't expose current port path directly, but we can track it or add a getter.
-	// Actually, `HubManager` has `portPath` field but it's private in `hubmanager` package?
-	// Wait, `HubManager` struct in `hubmanager.go` has `portPath string`. It's unexported?
-	// No, `portPath string` starts with lowercase. It's unexported.
-	// But `App` doesn't track current device ID except in frontend state?
-	// Wait, `hubmanager` has `CloseCurrentPort`.
-	// I should add `GetCurrentPortPath` to `HubManager` or just try to Open.
-	// If I call `OpenPort` on an already open port, it might fail or close and reopen.
-	// Let's modify `HubManager` to expose `GetCurrentPortPath` or similar.
-	// OR, I can just try to execute.
-
-	// For now, let's try to OpenPort. If it fails because it's already open, maybe it's fine?
-	// But `serial.Open` usually fails if port is in use.
-	// If `HubManager` holds the handle, `OpenPort` will close existing and open new.
-	// So calling `OpenPort(deviceID)` is safe if we want to switch to it.
-	// But if we are already connected to `deviceID`, `OpenPort` will reconnect, which is a bit disruptive but works.
-	// If we are connected to ANOTHER device, `OpenPort` will switch.
-
-	// To minimize disruption, I should check if we are already connected.
-	// I can't check easily without modifying HubManager.
-	// Let's modify HubManager first?
-	// Or just proceed with Open-Send-Close strategy for now, assuming scheduler runs infrequently.
-	// But if user is using the app, this will disconnect their session.
-	// That's a known limitation for now.
-
 	a.log(deviceID, "Scheduler", fmt.Sprintf("Executing task: Set Mask %s for device %s", cmdMask, deviceID))
 
 	err := a.OpenPort(deviceID)
@@ -105,20 +124,76 @@ func (a *App) executeScheduledTask(deviceID string, mask string) error {
 		return err
 	}
 
-	resp, err := a.SendCommand(cmd)
+	resp, err := a.SendCommand(deviceID, cmd)
 	if err != nil {
 		a.log(deviceID, "Error", fmt.Sprintf("Scheduler command failed: %v", err))
 		return err
 	}
 
-	a.log(deviceID, "Scheduler", fmt.Sprintf("Task executed. Response: %s", resp))
+	a.log(deviceID, "Scheduler", fmt.Sprintf("Task executed. Mask: %s (%s)", cmdMask, a.formatMaskLog(cmdMask)))
 
-	// We should probably close the port to leave it clean, unless we want to keep it open?
-	// If we keep it open, the frontend might be out of sync if it thinks it's disconnected.
-	// If the user was using it, we just reconnected, so they are fine (maybe).
-	// But if the user was using another device, we switched.
-	// So we should close it to be safe, so the user can reconnect to whatever they want.
-	return a.CloseCurrentPort()
+	// Notify frontend
+	runtime.EventsEmit(a.ctx, "task-executed", map[string]string{
+		"deviceID":  deviceID,
+		"mask":      cmdMask,
+		"response":  resp,
+		"timestamp": time.Now().Format("15:04:05"),
+	})
+
+	// Do not close port to keep connection alive
+	// return a.CloseCurrentPort()
+	return nil
+}
+
+// Helper to format mask log
+func (a *App) formatMaskLog(maskHex string) string {
+	// Parse hex mask
+	if len(maskHex) < 8 {
+		return maskHex
+	}
+
+	// Special cases
+	if strings.ToUpper(maskHex) == "FFFFFFFF" {
+		return "On=1,2,3,4,5,6,7"
+	}
+	if maskHex == "00000000" {
+		return "Off=1,2,3,4,5,6,7"
+	}
+
+	// The mask sent to the device is 8 hex chars.
+	// Based on frontend (controlPanel.vue) logic:
+	// byte0 = 0x80 | (states...)
+	// maskHex = byte0 + "FFFFFF"
+	// So only the first 2 hex chars (byte0) matter for port status 1-7.
+
+	firstByteHex := maskHex[:2]
+	var b int
+	_, err := fmt.Sscanf(firstByteHex, "%X", &b)
+	if err != nil {
+		return maskHex
+	}
+
+	var onPorts []string
+	var offPorts []string
+
+	// Bits 0-6 correspond to Ports 1-7
+	for i := 1; i <= 7; i++ {
+		if (b>>(i-1))&1 == 1 {
+			onPorts = append(onPorts, fmt.Sprintf("%d", i))
+		} else {
+			offPorts = append(offPorts, fmt.Sprintf("%d", i))
+		}
+	}
+
+	parts := []string{}
+	if len(onPorts) > 0 {
+		parts = append(parts, fmt.Sprintf("On=%s", strings.Join(onPorts, ",")))
+	}
+	if len(offPorts) > 0 {
+		parts = append(parts, fmt.Sprintf("Off=%s", strings.Join(offPorts, ",")))
+	}
+
+	return strings.Join(parts, ", ")
 }
 
 // startup is called when the app starts. The context is saved
@@ -129,22 +204,23 @@ func (a *App) startup(ctx context.Context) {
 	if err := config.Load(); err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
 	}
-	
+
 	// Reload tasks into scheduler after config is loaded
 	a.scheduler.ReloadTasks()
 
 	// Start Scheduler
 	a.scheduler.Start()
 
-	// Initialize logging directory
-	userDir, err := os.UserConfigDir()
+	// Initialize logging directory to be in the executable's directory
+	exePath, err := os.Executable()
 	if err == nil {
-		a.logDir = filepath.Join(userDir, "ManagedUSBHub", "logs")
+		exeDir := filepath.Dir(exePath)
+		a.logDir = filepath.Join(exeDir, "logs")
 		if err := os.MkdirAll(a.logDir, 0755); err != nil {
 			fmt.Printf("Error creating log directory: %v\n", err)
-		} else {
-			a.log("System", "System", "Application started")
 		}
+	} else {
+		fmt.Printf("Error getting executable path: %v\n", err)
 	}
 }
 
@@ -298,13 +374,13 @@ func (a *App) OpenPort(path string) error {
 }
 
 // SendCommand sends a string command and returns the response
-func (a *App) SendCommand(cmd string) (string, error) {
-	return a.hubManager.SendCommand(cmd)
+func (a *App) SendCommand(deviceID string, cmd string) (string, error) {
+	return a.hubManager.SendCommand(deviceID, cmd)
 }
 
-// CloseCurrentPort closes the current connection and resets state
-func (a *App) CloseCurrentPort() error {
-	return a.hubManager.CloseCurrentPort()
+// ClosePort closes connection for specific device
+func (a *App) ClosePort(deviceID string) error {
+	return a.hubManager.ClosePort(deviceID)
 }
 
 // QuitApp quits the application

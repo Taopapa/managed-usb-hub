@@ -42,7 +42,7 @@ func NewHubManager(logger func(deviceID, level, message string)) *HubManager {
 
 // AutoSearchProbe scans all serial ports and probes them
 func (hm *HubManager) AutoSearchProbe() ([]DeviceInfo, error) {
-	hm.logger("System", "System", "Starting auto search for USB hubs")
+	// hm.logger("System", "System", "Starting auto search for USB hubs")
 	ports, err := serial.GetPortsList()
 	if err != nil {
 		hm.logger("System", "Error", fmt.Sprintf("Failed to get ports list: %v", err))
@@ -53,7 +53,7 @@ func (hm *HubManager) AutoSearchProbe() ([]DeviceInfo, error) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	hm.logger("System", "System", fmt.Sprintf("Found %d serial ports", len(ports)))
+	// hm.logger("System", "System", fmt.Sprintf("Found %d serial ports", len(ports)))
 
 	for _, p := range ports {
 		wg.Add(1)
@@ -71,7 +71,7 @@ func (hm *HubManager) AutoSearchProbe() ([]DeviceInfo, error) {
 	}
 
 	wg.Wait()
-	hm.logger("System", "System", fmt.Sprintf("Auto search completed. Found %d devices", len(results)))
+	// hm.logger("System", "System", fmt.Sprintf("Auto search completed. Found %d devices", len(results)))
 	return results, nil
 }
 
@@ -80,7 +80,7 @@ func (hm *HubManager) OpenPort(path string) error {
 	hm.mu.Lock()
 	defer hm.mu.Unlock()
 
-	hm.logger(path, "System", fmt.Sprintf("Opening port %s", path))
+	// hm.logger(path, "System", fmt.Sprintf("Opening port %s", path))
 
 	if hm.port != nil {
 		hm.port.Close()
@@ -93,7 +93,7 @@ func (hm *HubManager) OpenPort(path string) error {
 	}
 	hm.port = p
 	hm.portPath = path
-	hm.logger(path, "System", fmt.Sprintf("Port %s opened successfully", path))
+	// hm.logger(path, "System", fmt.Sprintf("Port %s opened successfully", path))
 	return nil
 }
 
@@ -103,7 +103,7 @@ func (hm *HubManager) CloseCurrentPort() error {
 	defer hm.mu.Unlock()
 
 	if hm.port != nil {
-		hm.logger(hm.portPath, "System", fmt.Sprintf("Closing port %s", hm.portPath))
+		// hm.logger(hm.portPath, "System", fmt.Sprintf("Closing port %s", hm.portPath))
 		hm.port.Close()
 		hm.port = nil
 		hm.portPath = ""
@@ -125,11 +125,11 @@ func (hm *HubManager) SendCommand(cmd string) (string, error) {
 	hm.drain(hm.port, hm.portPath)
 
 	// Mask password in logs if present
-	logCmd := cmd
-	if strings.HasPrefix(cmd, "SP") || strings.HasPrefix(cmd, "WP") || strings.HasPrefix(cmd, "RD") || strings.HasPrefix(cmd, "RH") || strings.HasPrefix(cmd, "CP") {
-		logCmd = cmd[:2] + "********"
-	}
-	hm.logger(hm.portPath, "Command", fmt.Sprintf("Sending: %s", logCmd))
+	// logCmd := cmd
+	// if strings.HasPrefix(cmd, "SP") || strings.HasPrefix(cmd, "WP") || strings.HasPrefix(cmd, "RD") || strings.HasPrefix(cmd, "RH") || strings.HasPrefix(cmd, "CP") {
+	// 	logCmd = cmd[:2] + "********"
+	// }
+	// hm.logger(hm.portPath, "Command", fmt.Sprintf("Sending: %s", logCmd))
 
 	resp, err := hm.sendAndRead(hm.port, hm.portPath, cmd, 500*time.Millisecond)
 	if err != nil {
@@ -137,7 +137,7 @@ func (hm *HubManager) SendCommand(cmd string) (string, error) {
 		return "", err
 	}
 
-	hm.logger(hm.portPath, "Response", fmt.Sprintf("Received: %s", resp))
+	// hm.logger(hm.portPath, "Response", fmt.Sprintf("Received: %s", resp))
 	return resp, nil
 }
 
@@ -185,7 +185,7 @@ func (hm *HubManager) probeDevice(path string) DeviceInfo {
 	// But let's use raw string for flexibility if CLI wants to parse differently.
 	// Wait, CLI main.go currently parses Hex Encoded string.
 	// If we want to separate, we can change CLI to parse raw string, and here we return raw string.
-	
+
 	// Let's return raw string here.
 	gpData := gpDataRaw
 

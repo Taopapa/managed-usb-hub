@@ -37,18 +37,44 @@ func (s *Scheduler) ReloadTasks() {
 
 // Start begins the scheduler loop
 func (s *Scheduler) Start() {
-	s.ticker = time.NewTicker(1 * time.Minute)
-	go func() {
-		for {
-			select {
-			case <-s.ticker.C:
-				s.checkTasks()
-			case <-s.quit:
-				s.ticker.Stop()
-				return
+	// If already running, do nothing
+	if s.ticker != nil {
+		return
+	}
+
+	// Create quit channel if needed
+	if s.quit == nil {
+		s.quit = make(chan struct{})
+	}
+
+	// Calculate time until next minute
+	now := time.Now()
+	nextMinute := now.Truncate(time.Minute).Add(time.Minute)
+	duration := nextMinute.Sub(now)
+
+	fmt.Printf("[Scheduler] Starting... Next check in %v\n", duration)
+
+	// Wait until the start of the next minute
+	time.AfterFunc(duration, func() {
+		fmt.Println("[Scheduler] Ticker started aligned to minute")
+		// Start the ticker aligned to the minute
+		s.ticker = time.NewTicker(1 * time.Minute)
+
+		// Execute immediately for the first time
+		s.checkTasks()
+
+		go func() {
+			for {
+				select {
+				case <-s.ticker.C:
+					s.checkTasks()
+				case <-s.quit:
+					s.ticker.Stop()
+					return
+				}
 			}
-		}
-	}()
+		}()
+	})
 }
 
 // Stop stops the scheduler
@@ -60,14 +86,14 @@ func (s *Scheduler) Stop() {
 func (s *Scheduler) AddTask(task config.ScheduledTask) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Check for duplicate ID
 	for _, t := range s.tasks {
 		if t.ID == task.ID {
 			return fmt.Errorf("task with ID %s already exists", task.ID)
 		}
 	}
-	
+
 	s.tasks = append(s.tasks, task)
 	return config.SaveScheduledTasks(s.tasks)
 }
@@ -76,7 +102,7 @@ func (s *Scheduler) AddTask(task config.ScheduledTask) error {
 func (s *Scheduler) RemoveTask(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	newTasks := []config.ScheduledTask{}
 	found := false
 	for _, t := range s.tasks {
@@ -86,11 +112,11 @@ func (s *Scheduler) RemoveTask(id string) error {
 		}
 		newTasks = append(newTasks, t)
 	}
-	
+
 	if !found {
 		return fmt.Errorf("task not found")
 	}
-	
+
 	s.tasks = newTasks
 	return config.SaveScheduledTasks(s.tasks)
 }
@@ -99,7 +125,7 @@ func (s *Scheduler) RemoveTask(id string) error {
 func (s *Scheduler) UpdateTask(task config.ScheduledTask) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	found := false
 	for i, t := range s.tasks {
 		if t.ID == task.ID {
@@ -108,11 +134,11 @@ func (s *Scheduler) UpdateTask(task config.ScheduledTask) error {
 			break
 		}
 	}
-	
+
 	if !found {
 		return fmt.Errorf("task not found")
 	}
-	
+
 	return config.SaveScheduledTasks(s.tasks)
 }
 
@@ -137,7 +163,7 @@ func (s *Scheduler) checkTasks() {
 	currentDay := int(now.Weekday()) // 0=Sunday
 	currentHour := now.Hour()
 	currentMin := now.Minute()
-	
+
 	timeStr := fmt.Sprintf("%02d:%02d", currentHour, currentMin)
 
 	for _, task := range tasks {

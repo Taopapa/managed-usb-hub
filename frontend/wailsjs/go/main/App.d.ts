@@ -11,6 +11,8 @@ export function ClearLogFile(arg1:string):Promise<void>;
 
 export function CloseCurrentPort():Promise<void>;
 
+export function ClosePort(arg1:string):Promise<void>;
+
 export function GetScheduledTasks():Promise<Array<config.ScheduledTask>>;
 
 export function GetStoredPassword(arg1:string):Promise<string>;
@@ -19,13 +21,15 @@ export function GetUSBTree():Promise<string>;
 
 export function OpenPort(arg1:string):Promise<void>;
 
+export function OpenSystemTerminal():Promise<void>;
+
 export function QuitApp():Promise<void>;
 
 export function ReadLogs(arg1:string):Promise<Array<string>>;
 
 export function RemoveScheduledTask(arg1:string):Promise<void>;
 
-export function SendCommand(arg1:string):Promise<string>;
+export function SendCommand(arg1:string,arg2:string):Promise<string>;
 
 export function SetStoredPassword(arg1:string,arg2:string):Promise<void>;
 

@@ -21,10 +21,9 @@ type DeviceInfo struct {
 
 // HubManager handles the communication with USB Hub devices
 type HubManager struct {
-	port     serial.Port
-	portPath string
-	mu       sync.Mutex
-	logger   func(deviceID, level, message string)
+	ports  map[string]serial.Port
+	mu     sync.Mutex
+	logger func(deviceID, level, message string)
 }
 
 // NewHubManager creates a new HubManager instance
@@ -36,13 +35,13 @@ func NewHubManager(logger func(deviceID, level, message string)) *HubManager {
 		}
 	}
 	return &HubManager{
+		ports:  make(map[string]serial.Port),
 		logger: logger,
 	}
 }
 
 // AutoSearchProbe scans all serial ports and probes them
 func (hm *HubManager) AutoSearchProbe() ([]DeviceInfo, error) {
-	hm.logger("System", "System", "Starting auto search for USB hubs")
 	ports, err := serial.GetPortsList()
 	if err != nil {
 		hm.logger("System", "Error", fmt.Sprintf("Failed to get ports list: %v", err))
@@ -53,25 +52,30 @@ func (hm *HubManager) AutoSearchProbe() ([]DeviceInfo, error) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	hm.logger("System", "System", fmt.Sprintf("Found %d serial ports", len(ports)))
-
 	for _, p := range ports {
 		wg.Add(1)
 		go func(portName string) {
 			defer wg.Done()
 			// Try to probe each port
+			fmt.Printf("[AutoSearch] Probing port %s\n", portName)
 			res := hm.probeDevice(portName)
 			if res.Success {
 				mu.Lock()
 				results = append(results, res)
 				mu.Unlock()
-				hm.logger("System", "System", fmt.Sprintf("Found device at %s", portName))
+				fmt.Printf("[AutoSearch] Found device at %s\n", portName)
 			}
 		}(p)
 	}
 
 	wg.Wait()
 	hm.logger("System", "System", fmt.Sprintf("Auto search completed. Found %d devices", len(results)))
+
+	// Open all found devices to keep them connected
+	for _, dev := range results {
+		hm.OpenPort(dev.Path)
+	}
+
 	return results, nil
 }
 
@@ -80,73 +84,93 @@ func (hm *HubManager) OpenPort(path string) error {
 	hm.mu.Lock()
 	defer hm.mu.Unlock()
 
-	hm.logger(path, "System", fmt.Sprintf("Opening port %s", path))
-
-	if hm.port != nil {
-		hm.port.Close()
+	// Check if already open
+	if _, ok := hm.ports[path]; ok {
+		return nil
 	}
+
 	mode := &serial.Mode{BaudRate: 9600}
 	p, err := serial.Open(path, mode)
 	if err != nil {
 		hm.logger(path, "Error", fmt.Sprintf("Failed to open port %s: %v", path, err))
 		return err
 	}
-	hm.port = p
-	hm.portPath = path
-	hm.logger(path, "System", fmt.Sprintf("Port %s opened successfully", path))
+	hm.ports[path] = p
 	return nil
 }
 
-// CloseCurrentPort closes the current connection and resets state
-func (hm *HubManager) CloseCurrentPort() error {
+// CloseCurrentPort closes the connection for specific port
+func (hm *HubManager) ClosePort(path string) error {
 	hm.mu.Lock()
 	defer hm.mu.Unlock()
 
-	if hm.port != nil {
-		hm.logger(hm.portPath, "System", fmt.Sprintf("Closing port %s", hm.portPath))
-		hm.port.Close()
-		hm.port = nil
-		hm.portPath = ""
+	if p, ok := hm.ports[path]; ok {
+		p.Close()
+		delete(hm.ports, path)
 	}
 	return nil
 }
 
 // SendCommand sends a string command and returns the response
-func (hm *HubManager) SendCommand(cmd string) (string, error) {
+func (hm *HubManager) SendCommand(path string, cmd string) (string, error) {
+	fmt.Printf("[Command] Sending to %s: %s\n", path, cmd)
 	hm.mu.Lock()
-	defer hm.mu.Unlock()
 
-	if hm.port == nil {
-		hm.logger("Unknown", "Error", "Attempted to send command but port is not open")
-		return "", fmt.Errorf("Port not open")
+	port, ok := hm.ports[path]
+	hm.mu.Unlock() // Unlock immediately after map access
+
+	if !ok {
+		// Try to open it if not open
+		err := hm.OpenPort(path)
+		if err != nil {
+			hm.logger(path, "Error", "Attempted to send command but port is not open and failed to open")
+			return "", fmt.Errorf("Port not open")
+		}
+		// Re-acquire lock and get port
+		hm.mu.Lock()
+		port, ok = hm.ports[path]
+		hm.mu.Unlock()
+
+		if !ok {
+			return "", fmt.Errorf("Port failed to open")
+		}
 	}
 
 	// Drain before sending
-	hm.drain(hm.port, hm.portPath)
+	hm.drain(port, path)
 
-	// Mask password in logs if present
-	logCmd := cmd
-	if strings.HasPrefix(cmd, "SP") || strings.HasPrefix(cmd, "WP") || strings.HasPrefix(cmd, "RD") || strings.HasPrefix(cmd, "RH") || strings.HasPrefix(cmd, "CP") {
-		logCmd = cmd[:2] + "********"
-	}
-	hm.logger(hm.portPath, "Command", fmt.Sprintf("Sending: %s", logCmd))
-
-	resp, err := hm.sendAndRead(hm.port, hm.portPath, cmd, 500*time.Millisecond)
+	resp, err := hm.sendAndRead(port, path, cmd, 500*time.Millisecond)
 	if err != nil {
-		hm.logger(hm.portPath, "Error", fmt.Sprintf("Command failed: %v", err))
+		hm.logger(path, "Error", fmt.Sprintf("Command failed: %v", err))
+		// If error, maybe close port?
+		hm.ClosePort(path)
 		return "", err
 	}
 
-	hm.logger(hm.portPath, "Response", fmt.Sprintf("Received: %s", resp))
+	fmt.Printf("[Command] Response: %s\n", resp)
 	return resp, nil
 }
 
 // Internal helper methods
 
 func (hm *HubManager) probeDevice(path string) DeviceInfo {
+	// Check if already open in our map
+	hm.mu.Lock()
+	_, isOpen := hm.ports[path]
+	hm.mu.Unlock()
+
+	if isOpen {
+		// If already open, use it? Or close and reopen?
+		// Probing usually requires clean state.
+		// Let's close it to be safe, or try to use it.
+		// For simplicity in probe, let's close and reopen.
+		hm.ClosePort(path)
+	}
+
 	mode := &serial.Mode{BaudRate: 9600}
 	p, err := serial.Open(path, mode)
 	if err != nil {
+		fmt.Printf("[Probe] Failed to open %s: %v\n", path, err)
 		return DeviceInfo{Path: path, Success: false}
 	}
 	defer p.Close()
@@ -155,8 +179,9 @@ func (hm *HubManager) probeDevice(path string) DeviceInfo {
 	time.Sleep(100 * time.Millisecond)
 
 	// Fast Fail: Check ID with short timeout
-	idAscii, err := hm.sendAndRead(p, path, "?Q", 300*time.Millisecond)
+	idAscii, err := hm.sendAndRead(p, path, "?Q", 500*time.Millisecond)
 	if err != nil {
+		fmt.Printf("[Probe] Failed to read ID from %s: %v\n", path, err)
 		return DeviceInfo{Path: path, Success: false}
 	}
 
@@ -164,7 +189,10 @@ func (hm *HubManager) probeDevice(path string) DeviceInfo {
 		idAscii = idAscii[:idx]
 	}
 
+	fmt.Printf("[Probe] %s ID Response: %s\n", path, idAscii)
+
 	if !strings.Contains(idAscii, "CENTOS") {
+		fmt.Printf("[Probe] %s is not a target device (ID mismatch)\n", path)
 		return DeviceInfo{Path: path, Success: false, AsciiResponse: idAscii}
 	}
 
@@ -172,6 +200,7 @@ func (hm *HubManager) probeDevice(path string) DeviceInfo {
 
 	// Step 2: GP
 	gpDataRaw, _ := hm.sendAndRead(p, path, "GP", 500*time.Millisecond)
+	fmt.Printf("[Probe] %s GP Response: %s\n", path, gpDataRaw)
 	if idx := strings.IndexAny(gpDataRaw, "\r\n"); idx != -1 {
 		gpDataRaw = gpDataRaw[:idx]
 	}
@@ -180,6 +209,7 @@ func (hm *HubManager) probeDevice(path string) DeviceInfo {
 
 	// Step 3: GO
 	goDataRaw, _ := hm.sendAndRead(p, path, "GO", 500*time.Millisecond)
+	fmt.Printf("[Probe] %s GO Response: %s\n", path, goDataRaw)
 	if idx := strings.IndexAny(goDataRaw, "\r\n"); idx != -1 {
 		goDataRaw = goDataRaw[:idx]
 	}
@@ -262,5 +292,5 @@ func (hm *HubManager) sendAndRead(port serial.Port, portPath string, cmd string,
 		return cleanResp, nil
 	}
 
-	return resp, nil
+	return cleanResp, nil
 }

@@ -18,6 +18,10 @@ export function CloseCurrentPort() {
   return window['go']['main']['App']['CloseCurrentPort']();
 }
 
+export function ClosePort(arg1) {
+  return window['go']['main']['App']['ClosePort'](arg1);
+}
+
 export function GetScheduledTasks() {
   return window['go']['main']['App']['GetScheduledTasks']();
 }
@@ -34,6 +38,10 @@ export function OpenPort(arg1) {
   return window['go']['main']['App']['OpenPort'](arg1);
 }
 
+export function OpenSystemTerminal() {
+  return window['go']['main']['App']['OpenSystemTerminal']();
+}
+
 export function QuitApp() {
   return window['go']['main']['App']['QuitApp']();
 }
@@ -46,8 +54,8 @@ export function RemoveScheduledTask(arg1) {
   return window['go']['main']['App']['RemoveScheduledTask'](arg1);
 }
 
-export function SendCommand(arg1) {
-  return window['go']['main']['App']['SendCommand'](arg1);
+export function SendCommand(arg1, arg2) {
+  return window['go']['main']['App']['SendCommand'](arg1, arg2);
 }
 
 export function SetStoredPassword(arg1, arg2) {

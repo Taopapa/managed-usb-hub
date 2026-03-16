@@ -31,12 +31,14 @@ var (
 )
 
 func init() {
-	// Initialize paths
-	userDir, err := os.UserConfigDir()
+	// Initialize paths to be relative to the executable
+	exePath, err := os.Executable()
 	if err != nil {
-		userDir = "." // Fallback to local
+		configDir = "." // Fallback to current working directory
+	} else {
+		configDir = filepath.Dir(exePath)
 	}
-	configDir = filepath.Join(userDir, "ManagedUSBHub")
+	
 	configPath = filepath.Join(configDir, "config.json")
 
 	current = &AppConfig{
