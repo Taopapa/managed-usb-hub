@@ -3,6 +3,7 @@ import { defineProps, watch, onMounted } from 'vue'
 import { useLogStore } from '../stores/logs'
 import { useUIStore } from '../stores/ui'
 import { storeToRefs } from 'pinia'
+import { ExportLogs } from '../../wailsjs/go/main/App'
 
 const props = defineProps({
   currentDeviceId: {
@@ -37,19 +38,16 @@ const handleClear = async () => {
     }
 }
 
-const handleExport = () => {
-    const csvContent = "data:text/csv;charset=utf-8," 
-        + logs.value.map(e => `${e.time},${e.event},${e.deviceID},${e.details}`).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    
-    const deviceName = props.currentDeviceId || "System"
-    const fileName = `hub_logs_${deviceName}_${new Date().toISOString().split('T')[0]}.csv`
-    
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
+const handleExport = async () => {
+    try {
+        const csvContent = logs.value.map(e => `${e.time},${e.event},${e.deviceID},${e.details}`).join("\n");
+        const deviceName = props.currentDeviceId || "System"
+        const fileName = `hub_logs_${deviceName}_${new Date().toISOString().split('T')[0]}.csv`
+        
+        await ExportLogs(csvContent, fileName)
+    } catch (e) {
+        showAlert("Failed to export logs: " + e, "Error")
+    }
 }
 </script>
 

@@ -361,6 +361,33 @@ func (a *App) ClearLogFile(deviceID string) error {
 	return nil
 }
 
+// ExportLogs saves the logs to a user-selected file
+func (a *App) ExportLogs(csvContent, defaultFileName string) error {
+	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		DefaultFilename: defaultFileName,
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "CSV Files (*.csv)",
+				Pattern:     "*.csv",
+			},
+			{
+				DisplayName: "All Files (*.*)",
+				Pattern:     "*.*",
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	if filePath == "" {
+		// User cancelled the dialog
+		return nil
+	}
+
+	return os.WriteFile(filePath, []byte(csvContent), 0644)
+}
+
 // AutoSearchProbe scans all serial ports and probes them
 func (a *App) AutoSearchProbe() ([]hubmanager.DeviceInfo, error) {
 	return a.hubManager.AutoSearchProbe()

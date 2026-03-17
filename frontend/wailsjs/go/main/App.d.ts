@@ -11,6 +11,8 @@ export function ClearLogFile(arg1:string):Promise<void>;
 
 export function ClosePort(arg1:string):Promise<void>;
 
+export function ExportLogs(arg1:string,arg2:string):Promise<void>;
+
 export function GetScheduledTasks():Promise<Array<config.ScheduledTask>>;
 
 export function GetStoredPassword(arg1:string):Promise<string>;

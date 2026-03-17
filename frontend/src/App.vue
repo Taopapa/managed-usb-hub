@@ -1,6 +1,6 @@
 <script setup>
 import { reactive, ref, onMounted, watch, provide } from 'vue'
-import { QuitApp, SetStoredPassword, OpenSystemTerminal } from '../wailsjs/go/main/App'
+import { QuitApp, SetStoredPassword, OpenSystemTerminal, ExportLogs } from '../wailsjs/go/main/App'
 import AlertModal from './components/AlertModal.vue'
 import PasswordModal from './components/PasswordModal.vue'
 import SetPasswordModal from './components/SetPasswordModal.vue'
@@ -159,17 +159,16 @@ const clearPasswordAction = async () => {
     closeMenu()
 }
 
-const exportLogs = () => {
-    const csvContent = "data:text/csv;charset=utf-8," 
-        + logs.value.map(e => `${e.time},${e.event},${e.deviceID},${e.details}`).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    const deviceName = currentDevice.value ? currentDevice.value.portId : "System"
-    const fileName = `hub_logs_${deviceName}_${new Date().toISOString().split('T')[0]}.csv`
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
+const exportLogs = async () => {
+    try {
+        const csvContent = logs.value.map(e => `${e.time},${e.event},${e.deviceID},${e.details}`).join("\n");
+        const deviceName = currentDevice.value ? currentDevice.value.portId : "System"
+        const fileName = `hub_logs_${deviceName}_${new Date().toISOString().split('T')[0]}.csv`
+        
+        await ExportLogs(csvContent, fileName)
+    } catch (e) {
+        showAlert("Failed to export logs: " + e, "Error")
+    }
     closeMenu()
 }
 
