@@ -104,14 +104,23 @@ jobs:
           # 列出所有 exe 文件以供调试
           Write-Host "Listing build/bin contents:"
           Get-ChildItem "build/bin"
+          Write-Host "Listing build/windows/installer contents:"
+          Get-ChildItem "build/windows/installer"
           
+          # 尝试在 build/bin 中查找
           $installer = Get-ChildItem "build/bin/ManagedUSBHub_Setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          
+          if (-not $installer) {
+             # 如果在 build/bin 没找到，尝试在 build/windows/installer 目录查找（有时会生成在这里）
+             $installer = Get-ChildItem "build/windows/installer/ManagedUSBHub_Setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+
           if ($installer) {
             Move-Item $installer.FullName "build/bin/Managed-USB-Hub-Setup.exe"
-            Write-Host "Installer moved successfully."
+            Write-Host "Installer moved successfully from $($installer.FullName)."
           } else {
              # 如果找不到指定名称，尝试查找任何 *Setup.exe 或 *installer.exe
-             $fallback = Get-ChildItem "build/bin/*Setup.exe", "build/bin/*installer.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+             $fallback = Get-ChildItem "build/bin/*Setup.exe", "build/bin/*installer.exe", "build/windows/installer/*Setup.exe", "build/windows/installer/*installer.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
              if ($fallback) {
                  Write-Host "Found fallback installer: $($fallback.Name)"
                  Move-Item $fallback.FullName "build/bin/Managed-USB-Hub-Setup.exe"
