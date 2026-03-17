@@ -69,6 +69,7 @@ jobs:
         run: |
           # 仅当不是 Linux ARM64 时才构建 GUI
           if [ "${{ matrix.arch }}" != "arm64" ] || [ "${{ matrix.os }}" != "ubuntu-latest" ]; then
+             echo "Building GUI for ${{ matrix.os }}-${{ matrix.arch }}..."
              wails build -platform ${{ matrix.platform }} -tags webkit2_41
           else
              echo "Skipping GUI build for Linux ARM64 (CLI only)"
@@ -92,7 +93,14 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           cd build/bin
-          zip -r "Managed-USB-Hub-macOS.zip" "Managed USB Hub.app" "hub-cli"
+          # 确保 .app 存在
+          if [ -d "Managed USB Hub.app" ]; then
+             zip -r "Managed-USB-Hub-macOS.zip" "Managed USB Hub.app" "hub-cli"
+          else
+             echo "Error: Managed USB Hub.app not found!"
+             ls -la
+             exit 1
+          fi
 
       - name: Package Windows App
         if: matrix.os == 'windows-latest'
