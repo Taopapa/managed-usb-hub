@@ -99,14 +99,26 @@ jobs:
         shell: pwsh
         run: |
           # 移动生成的安装包到 build/bin 目录以便统一打包上传
-          # Wails 默认将安装包生成在 build/bin 目录下，名称通常为 "Managed USB Hub-amd64-installer.exe"
-          # 我们将其重命名并包含在 Release 中
-          $installer = Get-ChildItem "build/bin/*installer.exe" | Select-Object -First 1
+          # 根据 NSIS 脚本，输出文件名为 "ManagedUSBHub_Setup.exe"
+          
+          # 列出所有 exe 文件以供调试
+          Write-Host "Listing build/bin contents:"
+          Get-ChildItem "build/bin"
+          
+          $installer = Get-ChildItem "build/bin/ManagedUSBHub_Setup.exe" | Select-Object -First 1
           if ($installer) {
             Move-Item $installer.FullName "build/bin/Managed-USB-Hub-Setup.exe"
+            Write-Host "Installer moved successfully."
           } else {
-             Write-Error "Installer not found! Contents of build/bin:"
-             Get-ChildItem "build/bin" | Format-Table Name
+             # 如果找不到指定名称，尝试查找任何 *Setup.exe 或 *installer.exe
+             $fallback = Get-ChildItem "build/bin/*Setup.exe", "build/bin/*installer.exe" | Select-Object -First 1
+             if ($fallback) {
+                 Write-Host "Found fallback installer: $($fallback.Name)"
+                 Move-Item $fallback.FullName "build/bin/Managed-USB-Hub-Setup.exe"
+             } else {
+                 Write-Error "Installer not found! Contents of build/bin:"
+                 Get-ChildItem "build/bin" | Format-Table Name
+             }
           }
           
           # 同时保留便携版压缩包
