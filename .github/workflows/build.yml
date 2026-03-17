@@ -49,8 +49,14 @@ jobs:
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config
 
       - name: Build GUI App
+        if: matrix.os == 'windows-latest'
         run: |
           wails build -platform ${{ matrix.platform }} -tags webkit2_41 -nsis
+
+      - name: Build GUI App (Non-Windows)
+        if: matrix.os != 'windows-latest'
+        run: |
+          wails build -platform ${{ matrix.platform }} -tags webkit2_41
 
       - name: Build CLI Tool
         shell: bash
@@ -79,7 +85,8 @@ jobs:
           if ($installer) {
             Move-Item $installer.FullName "build/bin/Managed-USB-Hub-Setup.exe"
           } else {
-             Write-Error "Installer not found!"
+             Write-Error "Installer not found! Contents of build/bin:"
+             Get-ChildItem "build/bin" | Format-Table Name
           }
           
           # 同时保留便携版压缩包
@@ -99,7 +106,7 @@ jobs:
             build/bin/*.zip
             build/bin/*.tar.gz
             build/bin/Managed-USB-Hub-Setup.exe
-
+            
       - name: Create Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
