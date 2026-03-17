@@ -59,9 +59,8 @@ Section "Managed USB Hub" SecDummy
   ;Create uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
-  ;Add to PATH
-  EnVar::SetHKLM
-  EnVar::AddValue "Path" "$INSTDIR"
+  ; 添加到 PATH 环境变量的功能由于 GitHub Actions 缺少 EnVar 插件已移除
+  ; 如果用户需要，可以手动添加
 
   ;Create Shortcuts
   CreateDirectory "$SMPROGRAMS\Managed USB Hub"
@@ -78,9 +77,8 @@ SectionEnd
 
 Section "Uninstall"
 
-  ;Remove from PATH
-  EnVar::SetHKLM
-  EnVar::DeleteValue "Path" "$INSTDIR"
+  ; 从 PATH 环境变量移除的功能已移除
+  ; 用户需手动移除
 
   Delete "$INSTDIR\Managed USB Hub.exe"
   Delete "$INSTDIR\hub-cli.exe"
