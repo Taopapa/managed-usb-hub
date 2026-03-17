@@ -93,6 +93,11 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           cd build/bin
+          # 如果找到了 managed-usb-hub-wails.app，则重命名为 Managed USB Hub.app 以符合预期
+          if [ -d "managed-usb-hub-wails.app" ]; then
+             mv "managed-usb-hub-wails.app" "Managed USB Hub.app"
+          fi
+          
           # 确保 .app 存在
           if [ -d "Managed USB Hub.app" ]; then
              zip -r "Managed-USB-Hub-macOS.zip" "Managed USB Hub.app" "hub-cli"
