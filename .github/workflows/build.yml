@@ -74,6 +74,7 @@ jobs:
           fi
 
       - name: Build GUI App
+        shell: bash
         run: |
           # 仅当不是 Linux ARM64 时才构建 GUI
           if [ "${{ matrix.arch }}" != "arm64" ] || [ "${{ matrix.os }}" != "ubuntu-latest" ]; then
