@@ -153,31 +153,33 @@ export const useDeviceStore = defineStore('devices', () => {
         }
     }
 
-    const updatePortStatesFromHex = (hexStatus) => {
-         // Clean up hexStatus
-         let cleanHex = hexStatus.replace(/[\r\n\s]+/g, '').trim()
-         
-         // Try to find a valid hex pattern
-         // Look for 8 chars first (mask + status), then 2 chars (status byte 0)
-         let match = cleanHex.match(/[0-9A-Fa-f]{8}/)
-         if (!match) match = cleanHex.match(/[0-9A-Fa-f]{2}/)
-         
-         if (match) {
-             const hexVal = match[0]
-             const val = parseInt(hexVal.substring(0, 2), 16)
-             
-             if (!isNaN(val)) {
-                 for (let i = 1; i <= 7; i++) {
-                     if ((val >> (i - 1)) & 1) {
-                         portStates[i] = true
-                     } else {
-                         portStates[i] = false
-                     }
-                 }
-             }
-             return true
-         }
-         return false
+    const updatePortStatesFromHex = (deviceId, hexResponse) => {
+        // Find device
+        const device = devices.value.find(d => d.portId === deviceId)
+        if (!device) return
+
+        let cleanHex = hexResponse.trim()
+        if (cleanHex.startsWith("GP")) cleanHex = cleanHex.substring(2)
+        else if (cleanHex.startsWith("G") || cleanHex.startsWith("g")) cleanHex = cleanHex.substring(1)
+        
+        // Parse first byte (port mask)
+        let maskByte = 0
+        if (cleanHex.length >= 2) {
+            maskByte = parseInt(cleanHex.substring(0, 2), 16)
+        } else {
+            maskByte = parseInt(cleanHex, 16)
+        }
+
+        if (isNaN(maskByte)) return
+
+        // Update port states
+        // Bit 0 = Port 1, Bit 1 = Port 2, etc.
+        for (let i = 0; i < 7; i++) { // Assuming 7 ports
+            const isOn = (maskByte & (1 << i)) !== 0
+            if (device.ports[i]) {
+                device.ports[i].state = isOn
+            }
+        }
     }
 
     return {

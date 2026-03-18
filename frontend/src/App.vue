@@ -60,16 +60,44 @@ onMounted(() => {
                  
                  // 2. Update UI if we are looking at this device
                  if (currentDevice.value && currentDevice.value.portId === data.deviceID) {
-                     if (data.response && data.response.startsWith('G')) {
-                         const hexStatus = data.response.substring(1) // Remove 'G'
-                         console.log("Updating port states from hex:", hexStatus)
-                         updatePortStatesFromHex(hexStatus)
+                     // Check if response contains new status (often it's just 'OK')
+                     // If response is short (like 'OK' or 'E...'), we might need to fetch status again.
+                     // But usually SP command returns GP-like status?
+                     // Actually, SP command returns status string like "G8C..." or similar if successful?
+                     // Let's check what backend returns.
+                     // In scheduler.go: return s.executor(task.DeviceID, mask) -> App.go: SetPortState -> returns response
+                     // The response from SP command usually contains the new status hex.
+                     
+                     if (data.response && (data.response.startsWith("G") || data.response.startsWith("g"))) {
+                         // It's a status string, update directly
+                         updatePortStatesFromHex(data.deviceID, data.response)
+                     } else {
+                         // It might be just "OK" or something else, force a refresh
+                         // But refreshHub() might be async and collide.
+                         // Let's try to fetch status explicitly.
+                         // Or better, just trigger a refresh which calls GetState.
+                         // Wait a bit for device to settle?
+                         setTimeout(() => {
+                             // Only refresh if still selected
+                             if (currentDevice.value && currentDevice.value.portId === data.deviceID) {
+                                 // Call backend GetPortState
+                                 // Or re-use refresh logic
+                                 // We can emit an event or call store action
+                                 // Let's call refreshHub but only for this device?
+                                 // refreshHub re-scans all. That's heavy.
+                                 // Ideally we should just GetState(deviceID).
+                                 // But we don't have that exposed directly here easily without import.
+                                 // We can use updatePortStatesFromHex if we had the hex.
+                                 // Since we don't trust the response to always be hex, let's force a refresh.
+                                 refreshHub()
+                             }
+                         }, 500)
                      }
                  }
              }
         })
-    } catch (e) {
-        console.error("Failed to setup event listener", e)
+    } catch(e) {
+        console.error("Failed to register events", e)
     }
 })
 
