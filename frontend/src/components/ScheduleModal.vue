@@ -3,15 +3,17 @@ import { defineProps, defineEmits, ref, watch, inject } from 'vue'
 import { GetScheduledTasks, AddScheduledTask, UpdateScheduledTask, RemoveScheduledTask } from '../../wailsjs/go/main/App'
 import { parseMaskToStates, statesToMask } from '../utils/maskUtils'
 import { useDeviceStore } from '../stores/devices'
+import { useUIStore } from '../stores/ui'
 
 const deviceStore = useDeviceStore()
+const uiStore = useUIStore()
 
 const props = defineProps({
   show: Boolean
 })
 
 const emit = defineEmits(['close'])
-const showAlert = inject('showAlert')
+const { showAlert, showConfirm } = uiStore
 
 const tasks = ref([])
 const isEditingTask = ref(false)
@@ -117,7 +119,8 @@ const saveTask = async () => {
 }
 
 const deleteTask = async (id) => {
-  if (!confirm("Delete this task?")) return
+  const confirmed = await showConfirm("Delete this task?", "Confirm Delete")
+  if (!confirmed) return
   try {
       await RemoveScheduledTask(id)
       await fetchTasks()

@@ -8,6 +8,13 @@ export const useUIStore = defineStore('ui', () => {
         title: 'Information'
     })
 
+    const confirmState = reactive({
+        show: false,
+        message: '',
+        title: 'Confirm',
+        resolve: null
+    })
+
     const showAlert = (message, title = 'Information') => {
         alert.message = message
         alert.title = title
@@ -18,9 +25,29 @@ export const useUIStore = defineStore('ui', () => {
         alert.show = false
     }
 
+    const showConfirm = (message, title = 'Confirm') => {
+        return new Promise((resolve) => {
+            confirmState.message = message
+            confirmState.title = title
+            confirmState.show = true
+            confirmState.resolve = resolve
+        })
+    }
+
+    const handleConfirmResult = (result) => {
+        confirmState.show = false
+        if (confirmState.resolve) {
+            confirmState.resolve(result)
+            confirmState.resolve = null
+        }
+    }
+
     return {
         alert,
         showAlert,
-        closeAlert
+        closeAlert,
+        confirmState,
+        showConfirm,
+        handleConfirmResult
     }
 })

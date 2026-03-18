@@ -2,6 +2,7 @@
 import { reactive, ref, onMounted, watch, provide } from 'vue'
 import { QuitApp, SetStoredPassword, OpenSystemTerminal, ExportLogs } from '../wailsjs/go/main/App'
 import AlertModal from './components/AlertModal.vue'
+import ConfirmModal from './components/ConfirmModal.vue'
 import PasswordModal from './components/PasswordModal.vue'
 import SetPasswordModal from './components/SetPasswordModal.vue'
 import ScheduleModal from './components/ScheduleModal.vue'
@@ -27,12 +28,12 @@ const uiStore = useUIStore()
 const { devices, currentDevice, portStates, isScanning, isBackendConnected, devicesFoundCount } = storeToRefs(deviceStore)
 const { logs } = storeToRefs(logStore)
 const { showPasswordModal, showSetPasswordModal, setPassOld, authenticatedPorts } = storeToRefs(authStore)
-const { alert: customAlert } = storeToRefs(uiStore)
+const { alert: customAlert, confirmState } = storeToRefs(uiStore)
 
 const { autoSearch: autoSearchAction, selectDevice: selectDeviceAction, disconnect, updatePortStatesFromHex } = deviceStore
 const { loadHistoryLogs: loadLogsAction, addLog: addLogAction } = logStore
 const { checkDeviceAuth, handlePasswordSubmit, handleSubmitSetPassword, cancelPassword } = authStore
-const { showAlert, closeAlert } = uiStore
+const { showAlert, closeAlert, showConfirm, handleConfirmResult } = uiStore
 
 const addLog = (event, details, deviceID = null) => addLogAction(event, details, deviceID)
 const loadHistoryLogs = async (id) => loadLogsAction(id)
@@ -138,7 +139,10 @@ const runCli = async () => {
 
 const clearPasswordAction = async () => {
     if (!currentDevice.value || !currentDevice.value.portId) return
-    if (confirm(`Are you sure you want to clear the stored password for ${currentDevice.value.portId}?`)) {
+    
+    const confirmed = await showConfirm(`Are you sure you want to clear the stored password for ${currentDevice.value.portId}?`, 'Confirm Clear Password')
+    
+    if (confirmed) {
         try {
             await SetStoredPassword(currentDevice.value.portId, "")
             if (window.devicePasswords && window.devicePasswords[currentDevice.value.portId]) {
@@ -326,9 +330,16 @@ onMounted(() => {
         :show="customAlert.show" 
         :title="customAlert.title" 
         :message="customAlert.message" 
-        @close="closeAlert" 
+        @close="closeAlert"
     />
 
+    <!-- Custom Confirm Modal -->
+    <ConfirmModal 
+        :show="confirmState.show" 
+        :title="confirmState.title" 
+        :message="confirmState.message" 
+        @result="handleConfirmResult"
+    />
   </div>
 </template>
 

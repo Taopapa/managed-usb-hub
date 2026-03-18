@@ -17,7 +17,7 @@ const uiStore = useUIStore()
 
 const { logs } = storeToRefs(logStore)
 const { loadHistoryLogs, clearLogs } = logStore
-const { showAlert } = uiStore
+const { showAlert, showConfirm } = uiStore
 
 // Watch currentDeviceId to reload logs
 watch(() => props.currentDeviceId, (newVal) => {
@@ -29,7 +29,8 @@ onMounted(() => {
 })
 
 const handleClear = async () => {
-    if (confirm(`Are you sure you want to clear logs for ${props.currentDeviceId || 'System'}?`)) {
+    const confirmed = await showConfirm(`Are you sure you want to clear logs for ${props.currentDeviceId || 'System'}?`, 'Confirm Clear Logs')
+    if (confirmed) {
         try {
             await clearLogs(props.currentDeviceId)
         } catch (e) {
