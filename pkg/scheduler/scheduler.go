@@ -58,18 +58,20 @@ func (s *Scheduler) Start() {
 	time.AfterFunc(duration, func() {
 		fmt.Println("[Scheduler] Ticker started aligned to minute")
 		// Start the ticker aligned to the minute
+		// Ticker will fire exactly at :00 seconds of each minute (give or take a few ms)
 		s.ticker = time.NewTicker(1 * time.Minute)
 
-		// Execute immediately for the first time
+		// Execute immediately for the first time (because we just hit the minute mark)
 		s.checkTasks()
 
 		go func() {
 			for {
 				select {
 				case <-s.ticker.C:
-					// Add a small delay to ensure we are well into the new minute
-					// This prevents edge cases where ticker fires slightly before the minute changes
-					time.Sleep(100 * time.Millisecond)
+					// No sleep needed here.
+					// time.Ticker guarantees it fires AFTER the duration has elapsed.
+					// So if we align it to the minute boundary, it should fire just after :00.
+					// We can re-check the time inside checkTasks to be sure.
 					s.checkTasks()
 				case <-s.quit:
 					s.ticker.Stop()
@@ -163,11 +165,19 @@ func (s *Scheduler) checkTasks() {
 	s.mu.Unlock()
 
 	now := time.Now()
+	// Round to nearest minute to handle slight deviations (e.g. 10:09:59.999 or 10:10:00.001)
+	// But since we aligned ticker, it should be close to :00 seconds.
+	// However, if the system was busy and ticker fired late (e.g. 10:10:01), we still want 10:10.
+	// If it fired slightly early (very rare with Ticker but possible with Sleep alignment), we might want to round.
+	// Best approach: Just use Hour and Minute directly. Ticker fires *at or after* the tick.
+	// So if we set it to 1 minute interval aligned to :00, it will fire at 10:10:00.00something.
+	
 	currentDay := int(now.Weekday()) // 0=Sunday
 	currentHour := now.Hour()
 	currentMin := now.Minute()
 
 	timeStr := fmt.Sprintf("%02d:%02d", currentHour, currentMin)
+	fmt.Printf("[Scheduler] Checking tasks at %s (Day: %d)\n", timeStr, currentDay)
 
 	for _, task := range tasks {
 		if !task.Enabled {
