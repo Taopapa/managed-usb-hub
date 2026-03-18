@@ -42,7 +42,9 @@ const handleClear = async () => {
 const handleExport = async () => {
     try {
         const csvContent = logs.value.map(e => `${e.time},${e.event},${e.deviceID},${e.details}`).join("\n");
-        const deviceName = props.currentDeviceId || "System"
+        let deviceName = props.currentDeviceId || "System"
+        // Replace / with _ for filenames on Linux/macOS
+        deviceName = deviceName.replace(/\//g, "_").replace(/\\/g, "_")
         const fileName = `hub_logs_${deviceName}_${new Date().toISOString().split('T')[0]}.csv`
         
         await ExportLogs(csvContent, fileName)
