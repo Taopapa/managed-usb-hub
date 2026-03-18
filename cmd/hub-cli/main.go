@@ -197,21 +197,45 @@ func printUsage() {
 		// exeName = os.Args[0] // Full path is ugly
 	}
 
-	fmt.Printf("%s Managed USB Hub API v2.22 for Windows\n", exeName)
-	fmt.Printf("Usage: %s command [password] [argument]\n", exeName)
+	// 根据操作系统显示不同的前缀和端口示例
+	isWindows := true
+	if os.Getenv("OS") != "Windows_NT" && os.PathSeparator == '/' {
+		isWindows = false
+	}
+
+	if isWindows {
+		fmt.Printf("%s Managed USB Hub API v2.22 for Windows\n", exeName)
+		fmt.Printf("Usage: %s.exe command [password] [argument]\n", exeName)
+	} else {
+		fmt.Printf("%s Managed USB Hub API v2.22 for Linux/macOS\n", exeName)
+		fmt.Printf("Usage: ./%s command [password] [argument]\n", exeName)
+	}
+
 	fmt.Println("command:")
 
 	fmt.Println("    /Q        query (no password is required)")
-	fmt.Printf("    Usage:    %s /Q [option]\n", exeName)
-	fmt.Printf("              %s /Q:COM [option]\n", exeName)
-	fmt.Println("    /Q        query all Managed USB Hubs")
-	fmt.Println("    /Q:COM    query on COM port COMn (n = 1 to 256), or UID0123459789AB")
+	if isWindows {
+		fmt.Printf("    Usage:    %s.exe /Q [option]\n", exeName)
+		fmt.Printf("              %s.exe /Q:COM [option]\n", exeName)
+		fmt.Println("    /Q        query all Managed USB Hubs")
+		fmt.Println("    /Q:COM    query on COM port COMn (n = 1 to 256), or UID0123459789AB")
+	} else {
+		fmt.Printf("    Usage:    ./%s /Q [option]\n", exeName)
+		fmt.Printf("              ./%s /Q:PORT [option]\n", exeName)
+		fmt.Println("    /Q        query all Managed USB Hubs")
+		fmt.Println("    /Q:PORT   query on port (e.g., /dev/ttyUSB0), or UID0123459789AB")
+	}
 	// fmt.Println("    option    -F    output in formatted string")
 	fmt.Println("")
 
 	fmt.Println("    /S        set port states (password is required)")
-	fmt.Printf("    Usage:    %s /S:COM [pass] [states]\n", exeName)
-	fmt.Println("    COM       control port COMn (n = 1 to 255), or UID0123459789AB")
+	if isWindows {
+		fmt.Printf("    Usage:    %s.exe /S:COM [pass] [states]\n", exeName)
+		fmt.Println("    COM       control port COMn (n = 1 to 255), or UID0123459789AB")
+	} else {
+		fmt.Printf("    Usage:    ./%s /S:PORT [pass] [states]\n", exeName)
+		fmt.Println("    PORT      control port (e.g., /dev/ttyUSB0), or UID0123459789AB")
+	}
 	fmt.Println("    pass      password, default is used if this argument is not specified")
 	fmt.Println("    states    port states to be set on, off, toggle or given binary/hex states")
 	fmt.Println("              1:3,4     port 3 and 4 on")
@@ -229,46 +253,52 @@ func printUsage() {
 	fmt.Println("")
 
 	fmt.Println("    /P        change password (8 characters maximum)")
-	fmt.Printf("    Usage:    %s /P:COM [old_password] new_password\n", exeName)
-	fmt.Println("    COM       control port COMn (n = 1 to 255), or UID0123459789AB")
+	if isWindows {
+		fmt.Printf("    Usage:    %s.exe /P:COM [old_password] new_password\n", exeName)
+		fmt.Println("    COM       control port COMn (n = 1 to 255), or UID0123459789AB")
+	} else {
+		fmt.Printf("    Usage:    ./%s /P:PORT [old_password] new_password\n", exeName)
+		fmt.Println("    PORT      control port (e.g., /dev/ttyUSB0), or UID0123459789AB")
+	}
 	fmt.Println("    old_password  old password, default assumed if omitted")
 	fmt.Println("    new_password  new password")
 	fmt.Println("")
 
 	fmt.Println("    /G        get current port states (no password is required)")
-	fmt.Printf("    Usage:    %s /G:COM [option]\n", exeName)
-	fmt.Println("    /G:COM    control port COMn (n = 1 to 255), or UID0123459789AB")
+	if isWindows {
+		fmt.Printf("    Usage:    %s.exe /G:COM [option]\n", exeName)
+		fmt.Println("    /G:COM    control port COMn (n = 1 to 255), or UID0123459789AB")
+	} else {
+		fmt.Printf("    Usage:    ./%s /G:PORT [option]\n", exeName)
+		fmt.Println("    /G:PORT   control port (e.g., /dev/ttyUSB0), or UID0123459789AB")
+	}
 	fmt.Println("    option    -B    output in formatted binary string")
 	fmt.Println("              -H    output in formatted little-endian hex string")
 	fmt.Println("")
 
 	fmt.Println("    /W        save states to flash as the initial states (password is required)")
-	fmt.Printf("    Usage:    %s /W:COM [pass]\n", exeName)
+	if isWindows {
+		fmt.Printf("    Usage:    %s.exe /W:COM [pass]\n", exeName)
+	} else {
+		fmt.Printf("    Usage:    ./%s /W:PORT [pass]\n", exeName)
+	}
 	fmt.Println("")
 
-	// fmt.Println("    /T        read Hub description string")
-	// fmt.Printf("    Usage:    %s /T:COM\n", exeName)
-	// fmt.Println("")
-
-	// fmt.Println("    /X        write Hub description string (password is required)")
-	// fmt.Printf("    Usage:    %s /X:COM [pass] 'description string'\n", exeName)
-	// fmt.Println("")
-
-	// fmt.Println("    /U        read Hub UID (Unique ID) string")
-	// fmt.Printf("    Usage:    %s /U:COM\n", exeName)
-	// fmt.Println("")
-
 	fmt.Println("    /D        restore to factory default settings (password is required)")
-	fmt.Printf("    Usage:    %s /D:COM [pass]\n", exeName)
+	if isWindows {
+		fmt.Printf("    Usage:    %s.exe /D:COM [pass]\n", exeName)
+	} else {
+		fmt.Printf("    Usage:    ./%s /D:PORT [pass]\n", exeName)
+	}
 	fmt.Println("")
 
 	fmt.Println("    /R        reset the entire Managed USB Hub (password is required)")
-	fmt.Printf("    Usage:    %s /R:COM [pass]\n", exeName)
+	if isWindows {
+		fmt.Printf("    Usage:    %s.exe /R:COM [pass]\n", exeName)
+	} else {
+		fmt.Printf("    Usage:    ./%s /R:PORT [pass]\n", exeName)
+	}
 	fmt.Println("")
-
-	// fmt.Println("    /J        Commands in JSON format")
-	// fmt.Printf("    Usage:    %s /J \"JSON_string\"\n", exeName)
-	// fmt.Println("    \"JSON_string\" is input command and arguments in JSON format")
 }
 
 // Helpers
