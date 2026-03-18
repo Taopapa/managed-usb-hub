@@ -90,6 +90,12 @@ const saveTask = async () => {
         return
     }
 
+    if (taskForm.value.startTime === taskForm.value.stopTime) {
+        if(showAlert) showAlert("Start time and Stop time cannot be the same.", "Validation Error")
+        else alert("Start time and Stop time cannot be the same.")
+        return
+    }
+
     const startMask = statesToMask(taskForm.value.startPortStates)
     const stopMask = statesToMask(taskForm.value.stopPortStates)
     

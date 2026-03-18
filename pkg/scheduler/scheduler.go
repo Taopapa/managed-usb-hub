@@ -67,6 +67,9 @@ func (s *Scheduler) Start() {
 			for {
 				select {
 				case <-s.ticker.C:
+					// Add a small delay to ensure we are well into the new minute
+					// This prevents edge cases where ticker fires slightly before the minute changes
+					time.Sleep(100 * time.Millisecond)
 					s.checkTasks()
 				case <-s.quit:
 					s.ticker.Stop()
@@ -184,6 +187,9 @@ func (s *Scheduler) checkTasks() {
 		}
 
 		// Check Time
+		// Use seconds resolution to prevent duplicate execution within the same minute if needed,
+		// but here we just check equality with current minute.
+		// Since ticker runs once per minute, we don't need to worry about multiple executions.
 		if task.StartTime == timeStr {
 			fmt.Printf("Executing Start Task for %s\n", task.DeviceID)
 			mask := task.StartMask
@@ -191,7 +197,9 @@ func (s *Scheduler) checkTasks() {
 				mask = "FFFFFFFF" // Default All On
 			}
 			go s.executor(task.DeviceID, mask)
-		} else if task.StopTime == timeStr {
+		} 
+		
+		if task.StopTime == timeStr {
 			fmt.Printf("Executing Stop Task for %s\n", task.DeviceID)
 			mask := task.StopMask
 			if mask == "" {
