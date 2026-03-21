@@ -59,9 +59,8 @@ Section "Managed USB Hub" SecDummy
   ;Create uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
-  ;Add to PATH
-  EnVar::SetHKLM
-  EnVar::AddValue "Path" "$INSTDIR"
+  ; Add to PATH feature has been removed
+  ; Users can add it manually if needed
 
   ;Create Shortcuts
   CreateDirectory "$SMPROGRAMS\Managed USB Hub"
@@ -78,9 +77,8 @@ SectionEnd
 
 Section "Uninstall"
 
-  ;Remove from PATH
-  EnVar::SetHKLM
-  EnVar::DeleteValue "Path" "$INSTDIR"
+  ; Remove from PATH feature has been removed
+  ; Users need to remove it manually
 
   Delete "$INSTDIR\Managed USB Hub.exe"
   Delete "$INSTDIR\hub-cli.exe"
