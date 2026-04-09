@@ -72,16 +72,16 @@ const activeTab = ref('gui')
               <h4>Query & Info</h4>
               <ul class="cmd-list">
                 <li><code>/Q</code> - Query all C2G USB Hubs (no password required).</li>
-                <li><code>/Q:COM [-F]</code> - Query a specific COM port or UID. Optional: <code>-F</code> for formatted output.</li>
-                <li><code>/G:COM [-B|-H]</code> - Get current port states. Optional: <code>-B</code> (binary), <code>-H</code> (hex).</li>
+                <li><code>/Q:PORT [-F]</code> - Query a specific port (e.g. <code>COM3</code>, <code>ttyUSB0</code>) or UID. Optional: <code>-F</code> for formatted output.</li>
+                <li><code>/G:PORT [-B|-H]</code> - Get current port states. Optional: <code>-B</code> (binary), <code>-H</code> (hex).</li>
               </ul>
             </section>
 
             <section>
               <h4>Port Control (Password Required)</h4>
               <ul class="cmd-list">
-                <li><code>/S:COM [pass] [states]</code> - Set port states.</li>
-                <li><code>/F:COM [pass] [states]</code> - Set port states and save as initial states.</li>
+                <li><code>/S:PORT [pass] [states]</code> - Set port states.</li>
+                <li><code>/F:PORT [pass] [states]</code> - Set port states and save as initial states.</li>
               </ul>
               <p style="margin-top: 10px; font-weight: bold;">States Format:</p>
               <ul class="cmd-list">
@@ -98,17 +98,17 @@ const activeTab = ref('gui')
             <section>
               <h4>Configuration & Maintenance</h4>
               <ul class="cmd-list">
-                <li><code>/P:COM [old] new</code> - Change password (max 8 chars).</li>
-                <li><code>/T:COM [pass]</code> - Get Device Name.</li>
-                <li><code>/X:COM [pass] 'name'</code> - Set Device Name (max 8 chars).</li>
-                <li><code>/W:COM [pass]</code> - Save current states to flash as initial.</li>
-                <li><code>/D:COM [pass]</code> - Restore factory defaults.</li>
-                <li><code>/R:COM [pass]</code> - Reset the Hub.</li>
+                <li><code>/P:PORT [old] new</code> - Change password (max 8 chars).</li>
+                <li><code>/T:PORT [pass]</code> - Get Device Name.</li>
+                <li><code>/X:PORT [pass] 'name'</code> - Set Device Name (max 8 chars).</li>
+                <li><code>/W:PORT [pass]</code> - Save current states to flash as initial.</li>
+                <li><code>/D:PORT [pass]</code> - Restore factory defaults.</li>
+                <li><code>/R:PORT [pass]</code> - Reset the Hub.</li>
               </ul>
             </section>
 
             <section>
-              <h4>Examples</h4>
+              <h4>Examples (Windows)</h4>
               <div class="code-block">
                 # Query all hubs<br>
                 > muhcli /Q<br><br>
@@ -118,6 +118,20 @@ const activeTab = ref('gui')
                 > muhcli /S:COM3 1234 0:4<br><br>
                 # Query status of COM3 in hex<br>
                 > muhcli /G:COM3 -H
+              </div>
+            </section>
+            
+            <section>
+              <h4>Examples (Linux / macOS)</h4>
+              <div class="code-block">
+                # Query all hubs<br>
+                $ ./muhcli /Q<br><br>
+                # Turn on ports 1 and 2 on ttyUSB0 (or /dev/ttyUSB0)<br>
+                $ ./muhcli /S:ttyUSB0 1:1,2<br><br>
+                # Turn off port 4 on ttyUSB0 (using password '1234')<br>
+                $ ./muhcli /S:ttyUSB0 1234 0:4<br><br>
+                # Set Device Name on macOS port<br>
+                $ ./muhcli /X:cu.usbserial-210 1234 'MyHub'
               </div>
             </section>
           </div>

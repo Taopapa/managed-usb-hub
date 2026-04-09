@@ -212,7 +212,7 @@ func printUsage() {
 		fmt.Printf("    Usage:    ./%s /Q [option]\n", exeName)
 		fmt.Printf("              ./%s /Q:PORT [option]\n", exeName)
 		fmt.Println("    /Q        query all C2G USB Hub Managers")
-		fmt.Println("    /Q:PORT   query on port (e.g., /dev/ttyUSB0), or UID0123459789AB")
+		fmt.Println("    /Q:PORT   query on port (e.g., ttyUSB0 or /dev/ttyUSB0), or UID0123459789AB")
 	}
 	fmt.Println("    option    -F    output in formatted string")
 	fmt.Println("")
@@ -223,7 +223,7 @@ func printUsage() {
 		fmt.Println("    COM       control port COMn (n = 1 to 255), or UID0123459789AB")
 	} else {
 		fmt.Printf("    Usage:    ./%s /S:PORT [pass] [states]\n", exeName)
-		fmt.Println("    PORT      control port (e.g., /dev/ttyUSB0), or UID0123459789AB")
+		fmt.Println("    PORT      control port (e.g., ttyUSB0 or /dev/ttyUSB0), or UID0123459789AB")
 	}
 	fmt.Println("    pass      password, default is used if this argument is not specified")
 	fmt.Println("    states    port states to be set on, off, toggle or given binary/hex states")
@@ -247,7 +247,7 @@ func printUsage() {
 		fmt.Println("    COM       control port COMn (n = 1 to 255), or UID0123459789AB")
 	} else {
 		fmt.Printf("    Usage:    ./%s /P:PORT [old_password] new_password\n", exeName)
-		fmt.Println("    PORT      control port (e.g., /dev/ttyUSB0), or UID0123459789AB")
+		fmt.Println("    PORT      control port (e.g., ttyUSB0 or /dev/ttyUSB0), or UID0123459789AB")
 	}
 	fmt.Println("    old_password  old password, default assumed if omitted")
 	fmt.Println("    new_password  new password")
@@ -259,7 +259,7 @@ func printUsage() {
 		fmt.Println("    /G:COM    control port COMn (n = 1 to 255), or UID0123459789AB")
 	} else {
 		fmt.Printf("    Usage:    ./%s /G:PORT [option]\n", exeName)
-		fmt.Println("    /G:PORT   control port (e.g., /dev/ttyUSB0), or UID0123459789AB")
+		fmt.Println("    /G:PORT   control port (e.g., ttyUSB0 or /dev/ttyUSB0), or UID0123459789AB")
 	}
 	fmt.Println("    option    -B    output in formatted binary string")
 	fmt.Println("              -H    output in formatted little-endian hex string")
