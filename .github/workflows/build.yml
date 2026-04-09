@@ -41,7 +41,9 @@ jobs:
           node-version: '20'
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
       - name: Install Dependencies & Cross-compilers
         run: |
@@ -82,21 +84,38 @@ jobs:
 
       - name: Package Output
         run: |
-          cd build/bin
+          mkdir -p dist _pkg
           if [ "${{ matrix.arch }}" == "amd64" ]; then
-            tar -czvf "managed-usb-hub-linux-amd64.tar.gz" ./*
+            # Gather GUI + CLI into a staging directory
+            if [ -d "build/bin/linux-amd64" ]; then
+              cp -a build/bin/linux-amd64/* _pkg/ || true
+            elif [ -d "build/bin/linux" ]; then
+              cp -a build/bin/linux/* _pkg/ || true
+            elif [ -d "build/bin" ]; then
+              cp -a build/bin/* _pkg/ || true
+            fi
+            # Ensure CLI is included if built into build/bin
+            if [ -f "build/bin/muhcli" ]; then
+              cp build/bin/muhcli _pkg/
+            fi
+            tar -czvf "dist/managed-usb-hub-linux-amd64.tar.gz" -C _pkg .
           else
-            tar -czvf "managed-usb-hub-linux-${{ matrix.arch }}-cli.tar.gz" muhcli
+            # CLI-only packages for ARM64/ARM
+            if [ -f "build/bin/muhcli" ]; then
+              tar -czvf "dist/managed-usb-hub-linux-${{ matrix.arch }}-cli.tar.gz" -C build/bin muhcli
+            else
+              echo "muhcli not found in build/bin" && ls -la build/bin && exit 1
+            fi
           fi
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}-build
-          path: build/bin/*.tar.gz
+          path: dist/*.tar.gz
 
       - name: Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: build/bin/*.tar.gz
+          files: dist/*.tar.gz
