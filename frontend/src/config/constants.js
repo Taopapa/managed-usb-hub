@@ -1,0 +1,7 @@
+export const CONSTANTS = {
+    POLLING_INTERVAL_MS: 3000,
+    MAX_POLL_ERRORS: 3,
+    MAX_AUTH_RETRIES: 1,
+    DEFAULT_PASSWORD: "pass    ",
+    MAX_PORTS: 16
+}

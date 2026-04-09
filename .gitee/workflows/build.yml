@@ -1,0 +1,65 @@
+version: '1.0'
+name: wails-build
+displayName: Wails Build & Release
+triggers:
+  trigger: auto
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - master
+stages:
+  - name: build
+    displayName: Build Linux
+    strategy: naturally
+    trigger: auto
+    executor: []
+    steps:
+      - step: build@golang
+        name: build_golang
+        displayName: Golang & Wails Build
+        golangVersion: 1.22
+        commands:
+          # 安装 NodeJS
+          - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+          - apt-get install -y nodejs
+
+          # 安装 Wails 依赖 (Linux)
+          - apt-get update
+          - apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config
+          
+          # 安装交叉编译工具链 (用于编译 ARM 32/64)
+          - apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+
+          # 安装 Wails CLI
+          - go install github.com/wailsapp/wails/v2/cmd/wails@latest
+          - export PATH=$PATH:$(go env GOPATH)/bin
+
+          # 编译 AMD64 (桌面版应用 + 命令行)
+          - mkdir -p build/amd64
+          - go build -o "build/amd64/muhcli" ./cmd/muhcli
+          - wails build -platform linux/amd64 -tags webkit2_41
+          - cp build/bin/* build/amd64/ 2>/dev/null || true
+          
+          # 编译 ARM64 (仅命令行)
+          - mkdir -p build/arm64
+          - GOARCH=arm64 CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 go build -o "build/arm64/muhcli" ./cmd/muhcli
+          
+          # 编译 ARM32 (仅命令行)
+          - mkdir -p build/arm32
+          - GOARCH=arm GOARM=7 CC=arm-linux-gnueabihf-gcc CGO_ENABLED=1 go build -o "build/arm32/muhcli" ./cmd/muhcli
+
+          # 将各架构产物归档
+          - tar -czvf managed-usb-hub-linux-amd64.tar.gz -C build/amd64 .
+          - tar -czvf managed-usb-hub-linux-arm64-cli.tar.gz -C build/arm64 muhcli
+          - tar -czvf managed-usb-hub-linux-arm32-cli.tar.gz -C build/arm32 muhcli
+        artifacts:
+          - name: linux-amd64-build
+            path:
+              - managed-usb-hub-linux-amd64.tar.gz
+          - name: linux-arm64-cli-build
+            path:
+              - managed-usb-hub-linux-arm64-cli.tar.gz
+          - name: linux-arm32-cli-build
+            path:
+              - managed-usb-hub-linux-arm32-cli.tar.gz

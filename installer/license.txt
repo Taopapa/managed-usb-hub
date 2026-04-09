@@ -1,4 +1,4 @@
-Managed USB Hub Software License Agreement
+C2G USB Hub Manager Software License Agreement
 
 Copyright (c) 2024 Your Company Name
 

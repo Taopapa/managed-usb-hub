@@ -1,4 +1,4 @@
-# Managed USB Hub - macOS 环境开发与打包指南
+# C2G USB Hub Manager - macOS 环境开发与打包指南
 
 本文档详细介绍了如何在 macOS 环境中配置开发环境、运行项目以及构建分发包（.app, .dmg 和 .pkg）。
 
@@ -65,18 +65,14 @@ wails dev
 
 ## 3. 构建发布版本
 
-### 3.1 编译二进制文件
-构建生产环境的二进制文件：
+### 3.1 编译 GUI 和 CLI
+在根目录下运行：
 ```bash
-# 生成 .app 应用程序包
+# 编译 GUI (将生成 build/bin/C2G USB Hub Manager.app)
 wails build -platform darwin/universal
-```
-构建产物位于：`build/bin/Managed USB Hub.app`
 
-### 3.2 构建 CLI 工具
-```bash
-# 构建命令行工具
-go build -o build/bin/hub-cli ./cmd/hub-cli
+# 编译 CLI (确保与您的应用名对应，如果需要 CLI 的话)
+go build -o build/bin/muhcli ./cmd/muhcli
 ```
 
 ---
@@ -123,19 +119,19 @@ PKG 类似于 Windows 的安装程序，有安装向导。
 macOS 自带 `pkgbuild` 工具，无需额外安装。
 
 ```bash
-pkgbuild --root "build/bin/Managed USB Hub.app" \
-         --identifier "com.yourcompany.managedusbhub" \
+pkgbuild --root "build/bin/C2G USB Hub Manager.app" \
+         --identifier "com.yourcompany.c2g-usb-hub-manager" \
          --version "1.0.4" \
-         --install-location "/Applications/Managed USB Hub.app" \
-         "Managed-USB-Hub-Installer.pkg"
+         --install-location "/Applications/C2G USB Hub Manager.app" \
+         "C2G-USB-Hub-Manager-Installer.pkg"
 ```
 
 #### 步骤 2: 签名 (重要)
 如果您希望用户在双击安装时不看到“未识别的开发者”警告，必须对 PKG 进行签名。这需要 Apple Developer ID。
 ```bash
 productsign --sign "Developer ID Installer: Your Name (XXXXXXXXXX)" \
-            "Managed-USB-Hub-Installer.pkg" \
-            "Managed-USB-Hub-Installer-Signed.pkg"
+            "C2G-USB-Hub-Manager-Installer.pkg" \
+            "C2G-USB-Hub-Manager-Installer-Signed.pkg"
 ```
 
 ---
@@ -144,8 +140,8 @@ productsign --sign "Developer ID Installer: Your Name (XXXXXXXXXX)" \
 
 *   **无法打开应用 ("App is damaged")**：
     *   这是因为应用未签名或未经过公证 (Notarization)。
-    *   临时解决方法：在终端运行 `xattr -cr /Applications/Managed\ USB\ Hub.app` 清除隔离属性。
+    *   临时解决方法：在终端运行 `xattr -cr /Applications/C2G\ USB\ Hub\ Manager.app` 清除隔离属性。
     *   正式发布解决方法：使用 `gon` 工具对应用进行公证。
 *   **串口无法识别**：
     *   macOS 可能会将串口设备挂载为 `/dev/cu.usbserial-xxxx` 或 `/dev/tty.usbserial-xxxx`。
-    *   如果使用 `hub-cli`，请尝试使用 `ls /dev/cu.*` 查看设备列表。
+    *   如果使用 `muhcli`，请尝试使用 `ls /dev/cu.*` 查看设备列表。

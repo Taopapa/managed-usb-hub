@@ -12,6 +12,8 @@ export const useUIStore = defineStore('ui', () => {
         show: false,
         message: '',
         title: 'Confirm',
+        confirmLabel: 'OK',
+        cancelLabel: 'Cancel',
         resolve: null
     })
 
@@ -25,10 +27,12 @@ export const useUIStore = defineStore('ui', () => {
         alert.show = false
     }
 
-    const showConfirm = (message, title = 'Confirm') => {
+    const showConfirm = (message, title = 'Confirm', options = {}) => {
         return new Promise((resolve) => {
             confirmState.message = message
             confirmState.title = title
+            confirmState.confirmLabel = options.confirmLabel || 'OK'
+            confirmState.cancelLabel = options.cancelLabel || 'Cancel'
             confirmState.show = true
             confirmState.resolve = resolve
         })
@@ -36,6 +40,8 @@ export const useUIStore = defineStore('ui', () => {
 
     const handleConfirmResult = (result) => {
         confirmState.show = false
+        confirmState.confirmLabel = 'OK'
+        confirmState.cancelLabel = 'Cancel'
         if (confirmState.resolve) {
             confirmState.resolve(result)
             confirmState.resolve = null

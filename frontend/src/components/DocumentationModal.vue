@@ -43,7 +43,7 @@ const activeTab = ref('gui')
             
             <section>
               <h4>1. Connection & Device Selection</h4>
-              <p>The application automatically scans for connected Managed USB Hubs. Use the <strong>Device List</strong> in the top section to select a hub to control. If your device doesn't appear, use <strong>File > Scan for USB Hubs</strong>.</p>
+              <p>The application automatically scans for connected C2G USB Hub Managers. Use the <strong>Device List</strong> in the top section to select a hub to control. If your device doesn't appear, use <strong>File > Scan for USB Hubs</strong>.</p>
             </section>
 
             <section>
@@ -57,27 +57,22 @@ const activeTab = ref('gui')
             </section>
 
             <section>
-              <h4>4. Scheduling</h4>
-              <p>Automate port operations using <strong>Tools > Schedule Tasks</strong>. You can set specific days and times for ports to automatically turn on or off.</p>
-            </section>
-            
-            <section>
-                <h4>5. Security</h4>
-                <p>Some operations may require a password if the device is locked. Use <strong>Tools > Clear Stored Password</strong> if you need to reset the session authentication.</p>
+              <h4>4. Security</h4>
+              <p>Some operations may require a password if the device is locked. Use <strong>Tools > Clear Stored Password</strong> if you need to reset the session authentication.</p>
             </section>
           </div>
 
           <!-- CLI Documentation -->
           <div v-if="activeTab === 'cli'" class="scrollable-content">
             <h3>Command Line Interface Guide</h3>
-            <p>The application includes a built-in CLI tool (<code>hub-cli</code>). Open it via <strong>Tools > Run CLI Command</strong>.</p>
-            <p><strong>Usage:</strong> <code>hub-cli command [password] [argument]</code></p>
+            <p>The application includes a built-in CLI tool (<code>muhcli</code>). Open it via <strong>Tools > Run CLI Command</strong>.</p>
+            <p><strong>Usage:</strong> <code>muhcli command [password] [argument]</code></p>
 
             <section>
               <h4>Query & Info</h4>
               <ul class="cmd-list">
-                <li><code>/Q</code> - Query all Managed USB Hubs (no password required).</li>
-                <li><code>/Q:COM</code> - Query specific COM port or UID.</li>
+                <li><code>/Q</code> - Query all C2G USB Hubs (no password required).</li>
+                <li><code>/Q:COM [-F]</code> - Query a specific COM port or UID. Optional: <code>-F</code> for formatted output.</li>
                 <li><code>/G:COM [-B|-H]</code> - Get current port states. Optional: <code>-B</code> (binary), <code>-H</code> (hex).</li>
               </ul>
             </section>
@@ -104,6 +99,8 @@ const activeTab = ref('gui')
               <h4>Configuration & Maintenance</h4>
               <ul class="cmd-list">
                 <li><code>/P:COM [old] new</code> - Change password (max 8 chars).</li>
+                <li><code>/T:COM [pass]</code> - Get Device Name.</li>
+                <li><code>/X:COM [pass] 'name'</code> - Set Device Name (max 8 chars).</li>
                 <li><code>/W:COM [pass]</code> - Save current states to flash as initial.</li>
                 <li><code>/D:COM [pass]</code> - Restore factory defaults.</li>
                 <li><code>/R:COM [pass]</code> - Reset the Hub.</li>
@@ -114,13 +111,13 @@ const activeTab = ref('gui')
               <h4>Examples</h4>
               <div class="code-block">
                 # Query all hubs<br>
-                > hub-cli /Q<br><br>
+                > muhcli /Q<br><br>
                 # Turn on ports 1 and 2 on COM3<br>
-                > hub-cli /S:COM3 1:1,2<br><br>
+                > muhcli /S:COM3 1:1,2<br><br>
                 # Turn off port 4 on COM3 (using password '1234')<br>
-                > hub-cli /S:COM3 1234 0:4<br><br>
+                > muhcli /S:COM3 1234 0:4<br><br>
                 # Query status of COM3 in hex<br>
-                > hub-cli /G:COM3 -H
+                > muhcli /G:COM3 -H
               </div>
             </section>
           </div>
@@ -141,7 +138,7 @@ const activeTab = ref('gui')
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  z-index: 9998;
 }
 
 .modal.doc-modal {

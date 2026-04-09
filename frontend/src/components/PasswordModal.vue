@@ -2,7 +2,8 @@
 import { defineProps, defineEmits, ref, watch } from 'vue'
 
 const props = defineProps({
-  show: Boolean
+  show: Boolean,
+  initialPassword: String
 })
 
 const emit = defineEmits(['close', 'submit'])
@@ -13,13 +14,13 @@ const password = ref('')
 // Simple way: watch show prop
 watch(() => props.show, (newVal) => {
   if (newVal) {
-    password.value = ''
+    password.value = props.initialPassword || ''
     // Focus logic would need a ref to the input element and nextTick
   }
 })
 
 const submit = () => {
-  emit('submit', password.value)
+  emit('submit', password.value || props.initialPassword || '')
 }
 
 const cancel = () => {
@@ -60,7 +61,7 @@ const cancel = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10001;
 }
 
 .modal {

@@ -17,7 +17,7 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "Managed USB Hub",
+		Title:  "C2G USB Hub Manager",
 		Width:  900,
 		Height: 730,
 		AssetServer: &assetserver.Options{

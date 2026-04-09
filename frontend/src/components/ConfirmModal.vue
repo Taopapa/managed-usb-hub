@@ -7,7 +7,15 @@ const props = defineProps({
     type: String,
     default: 'Confirm'
   },
-  message: String
+  message: String,
+  confirmLabel: {
+    type: String,
+    default: 'OK'
+  },
+  cancelLabel: {
+    type: String,
+    default: 'Cancel'
+  }
 })
 
 const emit = defineEmits(['result'])
@@ -18,15 +26,15 @@ const handleResult = (result) => {
 </script>
 
 <template>
-  <div class="modal-overlay" v-if="show" style="z-index: 9999;">
+  <div class="modal-overlay" v-if="show">
     <div class="modal alert-modal">
       <div class="modal-header">{{ title }}</div>
       <div class="modal-body alert-message">
         {{ message }}
       </div>
       <div class="modal-footer" style="justify-content: center; gap: 20px;">
-        <button @click="handleResult(false)" style="min-width: 80px;">Cancel</button>
-        <button @click="handleResult(true)" style="min-width: 80px;" class="primary">OK</button>
+        <button @click="handleResult(false)" style="min-width: 80px;">{{ cancelLabel }}</button>
+        <button @click="handleResult(true)" style="min-width: 80px;" class="primary">{{ confirmLabel }}</button>
       </div>
     </div>
   </div>
@@ -43,7 +51,7 @@ const handleResult = (result) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10001;
 }
 
 .modal {

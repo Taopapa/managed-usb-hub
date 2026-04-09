@@ -1,3 +1,5 @@
+import { CONSTANTS } from '../config/constants'
+
 function hexToAscii(hex) {
     let str = '';
     for (let i = 0; i < hex.length; i += 2) {
@@ -8,6 +10,8 @@ function hexToAscii(hex) {
 }
 
 export const parseDevice = (r) => {
+    const deviceName = (r.deviceName || '').replace(/[^\x20-\x7E]/g, '').trimEnd()
+
     // Parse Version
     let version = "v1.0"
     if (r.probeResponse) {
@@ -21,30 +25,10 @@ export const parseDevice = (r) => {
         }
     }
 
-    // Parse GO Data
-    let totalPorts = 8
-    let validPortsMask = 0xFFFF
-    if (r.goData) {
-        let goAscii = ""
-        try {
-            const asciiStr = r.goData.substring(0, 4)
-            goAscii = hexToAscii(asciiStr)
-        } catch(e) {}
-        
-        let maskVal = parseInt(goAscii, 16)
-        if (!isNaN(maskVal)) {
-            validPortsMask = maskVal
-            let count = 0
-            let temp = maskVal
-            while (temp > 0) {
-                if (temp & 1) count++
-                temp >>= 1
-            }
-            totalPorts = count
-        }
-    }
+    // Currently, this product only has 7 ports. Hardcoding to 7.
+    let totalPorts = 7
 
-    // Parse GP Data
+    // Parse GW Data
     let onPortsList = []
     let offPortsList = []
     if (r.ledStatus) {
@@ -63,8 +47,8 @@ export const parseDevice = (r) => {
         // Clean up asciiStr
         asciiStr = asciiStr.replace(/[\r\n\s]+/g, '').trim()
         
-        // Remove prefixes like 'GP', 'G', 'g', 'gp'
-        if (asciiStr.toUpperCase().startsWith("GP")) asciiStr = asciiStr.substring(2)
+        // Remove prefixes like 'GW', 'G', 'g'
+        if (asciiStr.toUpperCase().startsWith("GW")) asciiStr = asciiStr.substring(2)
         else if (asciiStr.toUpperCase().startsWith("G")) asciiStr = asciiStr.substring(1)
         
         if (asciiStr.length >= 2) {
@@ -88,7 +72,7 @@ export const parseDevice = (r) => {
                 const val = parseInt(hexVal.substring(0, 2), 16)
                 if (!isNaN(val)) {
                      for (let i = 1; i <= totalPorts; i++) {
-                         if (i <= 7) {
+                         if (i <= totalPorts) { // Use totalPorts dynamically instead of hardcoded 7
                              if ((val >> (i - 1)) & 1) {
                                  onPortsList.push(i)
                              } else {
@@ -108,8 +92,9 @@ export const parseDevice = (r) => {
     return {
         portId: r.path,
         portName: r.path, // e.g., COM5
-        displayName: `C2G54464 7-Port Hub (${r.path})`, // Mock display name
-        description: 'C2G 7-Port Usb-A Hub',
+        deviceName: deviceName,
+        displayName: deviceName ? `${deviceName} (${r.path})` : `C2G USB Hub Manager (${r.path})`,
+        description: 'C2G USB Hub Manager',
         firmwareVersion: version,
         totalPorts: totalPorts,
         onPortsDisplay: onPortsList.length > 0 ? onPortsList.join(',') : '',

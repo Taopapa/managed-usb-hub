@@ -5,15 +5,15 @@
 ;General
 
   ;Name and file
-  Name "Managed USB Hub"
-  OutFile "..\..\bin\ManagedUSBHub_Setup.exe"
+  Name "C2G USB Hub Manager"
+  OutFile "..\..\bin\C2GUSBHubManager_Setup.exe"
   Unicode True
 
   ;Default installation folder
-  InstallDir "$LOCALAPPDATA\Managed USB Hub"
+  InstallDir "$LOCALAPPDATA\C2G USB Hub Manager"
 
   ;Get installation folder from registry if available
-  InstallDirRegKey HKCU "Software\Managed USB Hub" ""
+  InstallDirRegKey HKCU "Software\C2G USB Hub Manager" ""
 
   ;Request application privileges for Windows Vista
   RequestExecutionLevel admin
@@ -44,17 +44,17 @@
 ;--------------------------------
 ;Installer Sections
 
-Section "Managed USB Hub" SecDummy
+Section "C2G USB Hub Manager" SecDummy
 
   SetOutPath "$INSTDIR"
 
   ;ADD YOUR OWN FILES HERE...
-  File "..\..\bin\Managed USB Hub.exe"
-  File "..\..\bin\hub-cli.exe"
+  File "..\..\bin\C2G USB Hub Manager.exe"
+  File "..\..\bin\muhcli.exe"
   File "..\wails.exe.manifest"
 
   ;Store installation folder
-  WriteRegStr HKCU "Software\Managed USB Hub" "" $INSTDIR
+  WriteRegStr HKCU "Software\C2G USB Hub Manager" "" $INSTDIR
 
   ;Create uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -63,12 +63,12 @@ Section "Managed USB Hub" SecDummy
   ; Users can add it manually if needed
 
   ;Create Shortcuts
-  CreateDirectory "$SMPROGRAMS\Managed USB Hub"
-  CreateShortcut "$SMPROGRAMS\Managed USB Hub\Managed USB Hub.lnk" "$INSTDIR\Managed USB Hub.exe"
-  CreateShortcut "$SMPROGRAMS\Managed USB Hub\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+  CreateDirectory "$SMPROGRAMS\C2G USB Hub Manager"
+  CreateShortcut "$SMPROGRAMS\C2G USB Hub Manager\C2G USB Hub Manager.lnk" "$INSTDIR\C2G USB Hub Manager.exe"
+  CreateShortcut "$SMPROGRAMS\C2G USB Hub Manager\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
   
   ;Create Desktop Shortcut
-  CreateShortcut "$DESKTOP\Managed USB Hub.lnk" "$INSTDIR\Managed USB Hub.exe"
+  CreateShortcut "$DESKTOP\C2G USB Hub Manager.lnk" "$INSTDIR\C2G USB Hub Manager.exe"
 
 SectionEnd
 
@@ -80,20 +80,20 @@ Section "Uninstall"
   ; Remove from PATH feature has been removed
   ; Users need to remove it manually
 
-  Delete "$INSTDIR\Managed USB Hub.exe"
-  Delete "$INSTDIR\hub-cli.exe"
+  Delete "$INSTDIR\C2G USB Hub Manager.exe"
+  Delete "$INSTDIR\muhcli.exe"
   Delete "$INSTDIR\wails.exe.manifest"
   Delete "$INSTDIR\Uninstall.exe"
 
   RMDir "$INSTDIR"
 
-  Delete "$SMPROGRAMS\Managed USB Hub\Managed USB Hub.lnk"
-  Delete "$SMPROGRAMS\Managed USB Hub\Uninstall.lnk"
-  RMDir "$SMPROGRAMS\Managed USB Hub"
+  Delete "$SMPROGRAMS\C2G USB Hub Manager\C2G USB Hub Manager.lnk"
+  Delete "$SMPROGRAMS\C2G USB Hub Manager\Uninstall.lnk"
+  RMDir "$SMPROGRAMS\C2G USB Hub Manager"
   
   ;Remove Desktop Shortcut
-  Delete "$DESKTOP\Managed USB Hub.lnk"
+  Delete "$DESKTOP\C2G USB Hub Manager.lnk"
 
-  DeleteRegKey /ifempty HKCU "Software\Managed USB Hub"
+  DeleteRegKey /ifempty HKCU "Software\C2G USB Hub Manager"
 
 SectionEnd

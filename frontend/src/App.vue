@@ -1,12 +1,12 @@
 <script setup>
-import { reactive, ref, onMounted, watch, provide } from 'vue'
-import { QuitApp, SetStoredPassword, OpenSystemTerminal, ExportLogs } from '../wailsjs/go/main/App'
+import { ref, onMounted, watch, provide } from 'vue'
 import AlertModal from './components/AlertModal.vue'
 import ConfirmModal from './components/ConfirmModal.vue'
 import PasswordModal from './components/PasswordModal.vue'
 import SetPasswordModal from './components/SetPasswordModal.vue'
-import ScheduleModal from './components/ScheduleModal.vue'
 import DocumentationModal from './components/DocumentationModal.vue'
+import DeviceNameModal from './components/DeviceNameModal.vue'
+import VBUSPowerModal from './components/VBUSPowerModal.vue'
 import DeviceList from './components/DeviceList.vue'
 import DeviceInfo from './components/DeviceInfo.vue'
 import PortList from './components/PortList.vue'
@@ -17,6 +17,9 @@ import { useDeviceStore } from './stores/devices'
 import { useLogStore } from './stores/logs'
 import { useAuthStore } from './stores/auth'
 import { useUIStore } from './stores/ui'
+import { useAppActions } from './composables/useAppActions'
+import { useAppMenus } from './composables/useAppMenus'
+import { useMenuModals } from './composables/useMenuModals'
 import { storeToRefs } from 'pinia'
 import { EventsOn } from '../wailsjs/runtime'
 
@@ -25,17 +28,16 @@ const logStore = useLogStore()
 const authStore = useAuthStore()
 const uiStore = useUIStore()
 
-const { devices, currentDevice, portStates, isScanning, isBackendConnected, devicesFoundCount } = storeToRefs(deviceStore)
+const { devices, currentDevice, portStates, isScanning, devicesFoundCount, selectedDeviceTotalPorts } = storeToRefs(deviceStore)
 const { logs } = storeToRefs(logStore)
-const { showPasswordModal, showSetPasswordModal, setPassOld, authenticatedPorts } = storeToRefs(authStore)
+const { showPasswordModal, authPromptPassword, showSetPasswordModal, setPassOld } = storeToRefs(authStore)
 const { alert: customAlert, confirmState } = storeToRefs(uiStore)
 
-const { autoSearch: autoSearchAction, selectDevice: selectDeviceAction, disconnect, updatePortStatesFromHex } = deviceStore
-const { loadHistoryLogs: loadLogsAction, addLog: addLogAction } = logStore
+const { autoSearch: autoSearchAction, selectDevice: selectDeviceAction } = deviceStore
+const { loadHistoryLogs: loadLogsAction } = logStore
 const { checkDeviceAuth, handlePasswordSubmit, handleSubmitSetPassword, cancelPassword } = authStore
-const { showAlert, closeAlert, showConfirm, handleConfirmResult } = uiStore
+const { showAlert, closeAlert, handleConfirmResult } = uiStore
 
-const addLog = (event, details, deviceID = null) => addLogAction(event, details, deviceID)
 const loadHistoryLogs = async (id) => loadLogsAction(id)
 
 provide('showAlert', showAlert)
@@ -47,84 +49,16 @@ onMounted(() => {
         if (!e.target.closest('.menu-item')) closeMenu()
     })
 
-    // Listen for scheduled task execution events
     try {
-        EventsOn("task-executed", (data) => {
-             // Convert map to object if needed (Wails might return map as object)
-             // data is { deviceID, mask, response, timestamp }
-             console.log("Task executed event received:", data)
-             
-             if (data && data.deviceID) {
-                 // 1. Add log entry
-                 addLog("Scheduler", `Task executed. Mask: ${data.mask}`, data.deviceID)
-                 
-                 // 2. Update UI if we are looking at this device
-                 if (currentDevice.value && currentDevice.value.portId === data.deviceID) {
-                     // Check if response contains new status (often it's just 'OK')
-                     // If response is short (like 'OK' or 'E...'), we might need to fetch status again.
-                     // But usually SP command returns GP-like status?
-                     // Actually, SP command returns status string like "G8C..." or similar if successful?
-                     // Let's check what backend returns.
-                     // In scheduler.go: return s.executor(task.DeviceID, mask) -> App.go: SetPortState -> returns response
-                     // The response from SP command usually contains the new status hex.
-                     
-                     if (data.response && (data.response.startsWith("G") || data.response.startsWith("g"))) {
-                         // It's a status string, update directly
-                         updatePortStatesFromHex(data.deviceID, data.response)
-                     } else {
-                         // It might be just "OK" or something else, force a refresh
-                         // But refreshHub() might be async and collide.
-                         // Let's try to fetch status explicitly.
-                         // Or better, just trigger a refresh which calls GetState.
-                         // Wait a bit for device to settle?
-                         setTimeout(() => {
-                             // Only refresh if still selected
-                             if (currentDevice.value && currentDevice.value.portId === data.deviceID) {
-                                 // Call backend GetPortState
-                                 // Or re-use refresh logic
-                                 // We can emit an event or call store action
-                                 // Let's call refreshHub but only for this device?
-                                 // refreshHub re-scans all. That's heavy.
-                                 // Ideally we should just GetState(deviceID).
-                                 // But we don't have that exposed directly here easily without import.
-                                 // We can use updatePortStatesFromHex if we had the hex.
-                                 // Since we don't trust the response to always be hex, let's force a refresh.
-                                 refreshHub()
-                             }
-                         }, 500)
-                     }
-                 }
-             }
+        EventsOn("backend-error", (data) => {
+            if (data && data.message) {
+                logStore.addLog("System Error", data.message, data.deviceID || "System")
+            }
         })
     } catch(e) {
         console.error("Failed to register events", e)
     }
 })
-
-// --- Actions ---
-const autoSearch = async (targetDevId) => {
-    // If targetDevId is an event object (click event), ignore it
-    const targetId = (typeof targetDevId === 'string') ? targetDevId : null
-    
-    const foundDev = await autoSearchAction(targetId)
-    if (foundDev) {
-        selectDevice(foundDev)
-    } else if (devices.value.length > 0) {
-        selectDevice(devices.value[0])
-    }
-}
-
-const selectDevice = async (device) => {
-    await selectDeviceAction(device)
-    // Check auth state (syncs session password)
-    await checkDeviceAuth(device)
-    loadHistoryLogs(device.portId)
-}
-
-const handleDeviceSelect = (portId) => {
-    const dev = devices.value.find(d => d.portId === portId)
-    if(dev) selectDevice(dev)
-}
 
 // --- Menu Functions ---
 const activeMenu = ref(null)
@@ -135,91 +69,56 @@ const closeMenu = () => {
     activeMenu.value = null
 }
 
-const quitApp = () => QuitApp()
-
-const refreshHub = async () => {
-    if (currentDevice.value) {
-        const dev = currentDevice.value
-        // Don't disconnect, just re-select which triggers re-connect logic
-        await selectDevice(dev)
-    }
-    closeMenu()
-}
-
 // --- Scheduling ---
-const showScheduleModal = ref(false)
-const showDocModal = ref(false)
+const {
+    showDocModal,
+    showVBUSPowerModal,
+    showDeviceNameModal,
+    openDeviceNameModal,
+    closeDeviceNameModal,
+    openVBUSPowerModal,
+    closeVBUSPowerModal,
+    openDocumentationModal,
+    closeDocumentationModal
+} = useMenuModals({
+    currentDevice,
+    showAlert,
+    closeMenu
+})
 
-const scheduleTasks = () => {
-    showScheduleModal.value = true
-    activeMenu.value = null
-}
+const {
+    autoSearch,
+    handleDeviceSelect,
+    quitApp,
+    refreshHub,
+    runCli,
+    exportLogs,
+    showAbout,
+    updateSelectedDeviceName
+} = useAppActions({
+    currentDevice,
+    devices,
+    logs,
+    showAlert,
+    closeMenu,
+    autoSearchAction,
+    selectDeviceAction,
+    checkDeviceAuth,
+    loadHistoryLogs
+})
 
-// CLI
-const runCli = async () => {
-    try {
-        await OpenSystemTerminal()
-    } catch(e) {
-        showAlert("Failed to open terminal: " + e, "Error")
-    }
-    closeMenu()
-}
-
-const clearPasswordAction = async () => {
-    if (!currentDevice.value || !currentDevice.value.portId) return
-    
-    const confirmed = await showConfirm(`Are you sure you want to clear the stored password for ${currentDevice.value.portId}?`, 'Confirm Clear Password')
-    
-    if (confirmed) {
-        try {
-            await SetStoredPassword(currentDevice.value.portId, "")
-            if (window.devicePasswords && window.devicePasswords[currentDevice.value.portId]) {
-                delete window.devicePasswords[currentDevice.value.portId]
-            }
-            currentDevice.value.sessionPassword = null
-            authenticatedPorts.value.delete(currentDevice.value.portId)
-            
-            showAlert('Password cleared successfully.', "Success")
-            
-            // Reconnect to force re-auth
-            refreshHub()
-            
-        } catch(e) {
-            showAlert('Failed to clear password: ' + e, "Error")
-        }
-    }
-    closeMenu()
-}
-
-const exportLogs = async () => {
-    try {
-        const csvContent = logs.value.map(e => `${e.time},${e.event},${e.deviceID},${e.details}`).join("\n");
-        let deviceName = currentDevice.value ? currentDevice.value.portId : "System"
-        // Replace / with _ for filenames on Linux/macOS
-        deviceName = deviceName.replace(/\//g, "_").replace(/\\/g, "_")
-        const fileName = `hub_logs_${deviceName}_${new Date().toISOString().split('T')[0]}.csv`
-        
-        await ExportLogs(csvContent, fileName)
-    } catch (e) {
-        showAlert("Failed to export logs: " + e, "Error")
-    }
-    closeMenu()
-}
-
-const showDocs = () => {
-    showDocModal.value = true
-    closeMenu()
-}
-
-const checkUpdates = () => {
-    setTimeout(() => showAlert('You are running the latest version (v1.0.0).', "Updates"), 1000)
-    closeMenu()
-}
-
-const showAbout = () => {
-    showAlert('Managed USB Hub Manager\nVersion 1.0.0\n(c) 2024 C2G', "About")
-    closeMenu()
-}
+const menus = useAppMenus({
+    currentDevice,
+    autoSearch,
+    exportLogs,
+    quitApp,
+    refreshHub,
+    openDeviceNameModal,
+    openVBUSPowerModal,
+    runCli,
+    openDocumentationModal,
+    showAbout
+})
 
 // Watchers
 const selectedTab = ref('ports')
@@ -227,54 +126,24 @@ watch(selectedTab, (newVal) => {
     if (newVal === 'logs') loadHistoryLogs()
 })
 
-onMounted(() => {
-    loadHistoryLogs()
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.menu-item')) closeMenu()
-    })
-})
 </script>
 
 <template>
   <div class="window-container">
     <!-- Menu Bar -->
     <div class="menu-bar">
-        <div class="menu-item-container">
-            <div class="menu-item" @click.stop="toggleMenu('file')">File</div>
-            <div v-if="activeMenu === 'file'" class="dropdown-menu">
-                <div class="dropdown-item" @click="autoSearch">Scan for USB Hubs</div>
-                <div class="dropdown-separator"></div>
-                <div class="dropdown-item" @click="exportLogs">Export Logs</div>
-                <div class="dropdown-separator"></div>
-                <div class="dropdown-item" @click="quitApp">Exit</div>
-            </div>
-        </div>
-        
-        <div class="menu-item-container">
-            <div class="menu-item" @click.stop="toggleMenu('view')">View</div>
-            <div v-if="activeMenu === 'view'" class="dropdown-menu">
-                <div class="dropdown-item" @click="refreshHub" :class="{ disabled: !currentDevice }">Refresh Selected Hub</div>
-            </div>
-        </div>
-        
-        <div class="menu-item-container">
-            <div class="menu-item" @click.stop="toggleMenu('tools')">Tools</div>
-            <div v-if="activeMenu === 'tools'" class="dropdown-menu">
-                <div class="dropdown-item" @click="scheduleTasks">Schedule Tasks</div>
-                <div class="dropdown-separator"></div>
-                <div class="dropdown-item" @click="runCli">Run CLI Command</div>
-                <div class="dropdown-separator"></div>
-                <div class="dropdown-item" @click="clearPasswordAction" :class="{ disabled: !currentDevice }">Clear Stored Password</div>
-            </div>
-        </div>
-        
-        <div class="menu-item-container">
-            <div class="menu-item" @click.stop="toggleMenu('help')">Help</div>
-            <div v-if="activeMenu === 'help'" class="dropdown-menu">
-                <div class="dropdown-item" @click="showDocs">Documentation</div>
-                <!-- <div class="dropdown-item" @click="checkUpdates">Check for Updates</div> -->
-                <div class="dropdown-separator"></div>
-                <div class="dropdown-item" @click="showAbout">About</div>
+        <div v-for="menu in menus" :key="menu.key" class="menu-item-container">
+            <div class="menu-item" @click.stop="toggleMenu(menu.key)">{{ menu.label }}</div>
+            <div v-if="activeMenu === menu.key" class="dropdown-menu">
+                <template v-for="item in menu.items" :key="item.key">
+                    <div v-if="item.separator" class="dropdown-separator"></div>
+                    <div
+                        v-else
+                        class="dropdown-item"
+                        :class="{ disabled: item.disabled }"
+                        @click="!item.disabled && item.onClick()"
+                    >{{ item.label }}</div>
+                </template>
             </div>
         </div>
     </div>
@@ -308,7 +177,7 @@ onMounted(() => {
                 <div v-if="selectedTab === 'ports'">
                     <PortList 
                         :port-states="portStates" 
-                        :total-ports="7" 
+                        :total-ports="selectedDeviceTotalPorts" 
                     />
                 </div>
                 
@@ -324,35 +193,44 @@ onMounted(() => {
     <!-- Status Bar -->
     <div class="status-bar">
         <div class="status-left">Ready</div>
-        <div class="status-right">{{ devicesFoundCount }} hub{{ devicesFoundCount !== 1 ? 's' : '' }} online, 0 hubs offline</div>
+        <div class="status-right">{{ devicesFoundCount }} hub{{ devicesFoundCount !== 1 ? 's' : '' }} online</div>
     </div>
 
     <!-- Password Modal -->
     <PasswordModal 
         :show="showPasswordModal" 
+        :initialPassword="authPromptPassword"
         @close="cancelPassword" 
         @submit="handlePasswordSubmit" 
     />
 
     <!-- Set Password Modal -->
-    <SetPasswordModal 
-        :show="showSetPasswordModal" 
-        :initial-old="setPassOld" 
-        @close="showSetPasswordModal = false" 
-        @submit="handleSubmitSetPassword" 
-    />
-
-    <!-- Schedule Modal -->
-    <ScheduleModal 
-        :show="showScheduleModal" 
-        :devices="devices"
-        @close="showScheduleModal = false" 
+    <SetPasswordModal
+        :show="showSetPasswordModal"
+        :initialOld="setPassOld"
+        @close="showSetPasswordModal = false"
+        @submit="handleSubmitSetPassword"
     />
 
     <!-- Documentation Modal -->
     <DocumentationModal 
         :show="showDocModal" 
-        @close="showDocModal = false" 
+        @close="closeDocumentationModal" 
+    />
+
+    <!-- Device Name Modal -->
+    <DeviceNameModal
+        :show="showDeviceNameModal"
+        :device="currentDevice"
+        @close="closeDeviceNameModal"
+        @updated="updateSelectedDeviceName"
+    />
+
+    <!-- VBUS Power Modal -->
+    <VBUSPowerModal
+        :show="showVBUSPowerModal"
+        :device="currentDevice"
+        @close="closeVBUSPowerModal"
     />
 
     <!-- Custom Alert Modal -->
@@ -368,6 +246,8 @@ onMounted(() => {
         :show="confirmState.show" 
         :title="confirmState.title" 
         :message="confirmState.message" 
+        :confirm-label="confirmState.confirmLabel"
+        :cancel-label="confirmState.cancelLabel"
         @result="handleConfirmResult"
     />
   </div>

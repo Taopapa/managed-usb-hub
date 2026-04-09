@@ -10,19 +10,37 @@ export const useLogStore = defineStore('logs', () => {
             const lines = await ReadLogs(deviceID || "")
             if (lines && lines.length > 0) {
                 const parsed = []
-                const regexNew = /^\[(.*?)\] \[(.*?)\] \[(.*?)\] (.*)$/
-                
-                lines.forEach(line => {
-                    let match = line.match(regexNew)
-                    if (match) {
-                        parsed.unshift({
-                            time: match[1],
-                            event: match[2],
-                            deviceID: match[3],
-                            details: match[4]
-                        })
+                for (let line of lines) {
+                    try {
+                        const obj = JSON.parse(line)
+                        // logrus JSON output format: {"device":"COM3","level":"info","msg":"...","time":"2026-03-27 15:42:01"}
+                        // Only show logs for this device or system logs
+                        if (!deviceID || obj.device === deviceID || obj.device === "System" || obj.device === "") {
+                             parsed.unshift({
+                                id: Date.now() + Math.random(),
+                                time: obj.time,
+                                event: obj.level.charAt(0).toUpperCase() + obj.level.slice(1),
+                                deviceID: obj.device || "System",
+                                details: obj.msg
+                            })
+                        }
+                    } catch(e) {
+                        // Fallback to old regex format just in case
+                        const match = line.match(/^\[(.*?)\] \[(.*?)\] \[(.*?)\] (.*)$/)
+                        if (match) {
+                            const [, time, event, devId, details] = match
+                            if (!deviceID || devId === deviceID || devId === "System") {
+                                parsed.unshift({
+                                    id: Date.now() + Math.random(),
+                                    time,
+                                    event,
+                                    deviceID: devId,
+                                    details
+                                })
+                            }
+                        }
                     }
-                })
+                }
                 logs.value = parsed
             } else {
                 logs.value = []

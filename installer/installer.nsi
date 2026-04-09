@@ -4,10 +4,10 @@
 !include "MUI2.nsh"
 
 ;--- Application Details ---
-Name "Managed USB Hub Manager"
-OutFile "..\ManagedUSBHub_Setup.exe"
-InstallDir "$PROGRAMFILES64\ManagedUSBHub"
-InstallDirRegKey HKCU "Software\ManagedUSBHub" ""
+Name "C2G USB Hub Manager"
+OutFile "..\C2GUSBHubManager_Setup.exe"
+InstallDir "$PROGRAMFILES64\C2G USB Hub Manager"
+InstallDirRegKey HKCU "Software\C2G USB Hub Manager" ""
 RequestExecutionLevel admin
 
 ;--- Interface Configuration ---
@@ -37,51 +37,51 @@ Section "MainSection" SecMain
     
     ; Main GUI Application (Assumes wails build has run)
     ; The default Wails output name often contains spaces or matches the project name
-    File "..\build\bin\Managed USB Hub.exe"
+    File "..\build\bin\C2G USB Hub Manager.exe"
     
     ; Rename it on install if desired, or keep as is.
     ; If we want to rename it to match the shortcut target:
-    ; File "/oname=ManagedUSBHub.exe" "..\build\bin\Managed USB Hub.exe"
+    ; File "/oname=C2GUSBHubManager.exe" "..\build\bin\C2G USB Hub Manager.exe"
     ; But easier to just update shortcuts to point to the real name.
     
     ; CLI Tool (Assumes built in root)
-    File "..\hub-cli.exe" 
+    File "..\muhcli.exe" 
     
     ; Store installation folder
-    WriteRegStr HKCU "Software\ManagedUSBHub" "" $INSTDIR
+    WriteRegStr HKCU "Software\C2G USB Hub Manager" "" $INSTDIR
     
     ; Create Uninstaller
     WriteUninstaller "$INSTDIR\uninstall.exe"
     
     ; Add to Add/Remove Programs
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ManagedUSBHub" "DisplayName" "Managed USB Hub Manager"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ManagedUSBHub" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ManagedUSBHub" "DisplayIcon" "$INSTDIR\Managed USB Hub.exe"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ManagedUSBHub" "Publisher" "Your Company"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\C2GUSBHubManager" "DisplayName" "C2G USB Hub Manager"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\C2GUSBHubManager" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\C2GUSBHubManager" "DisplayIcon" "$INSTDIR\C2G USB Hub Manager.exe"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\C2GUSBHubManager" "Publisher" "Your Company"
     
     ; Create Shortcuts
-    CreateDirectory "$SMPROGRAMS\Managed USB Hub"
-    CreateShortCut "$SMPROGRAMS\Managed USB Hub\Managed USB Hub.lnk" "$INSTDIR\Managed USB Hub.exe"
-    CreateShortCut "$SMPROGRAMS\Managed USB Hub\Hub CLI.lnk" "$INSTDIR\hub-cli.exe"
-    CreateShortCut "$SMPROGRAMS\Managed USB Hub\Uninstall.lnk" "$INSTDIR\uninstall.exe"
+    CreateDirectory "$SMPROGRAMS\C2G USB Hub Manager"
+    CreateShortCut "$SMPROGRAMS\C2G USB Hub Manager\C2G USB Hub Manager.lnk" "$INSTDIR\C2G USB Hub Manager.exe"
+    CreateShortCut "$SMPROGRAMS\C2G USB Hub Manager\Hub CLI.lnk" "$INSTDIR\muhcli.exe"
+    CreateShortCut "$SMPROGRAMS\C2G USB Hub Manager\Uninstall.lnk" "$INSTDIR\uninstall.exe"
     
-    CreateShortCut "$DESKTOP\Managed USB Hub.lnk" "$INSTDIR\Managed USB Hub.exe"
+    CreateShortCut "$DESKTOP\C2G USB Hub Manager.lnk" "$INSTDIR\C2G USB Hub Manager.exe"
 SectionEnd
 
 ;--- Uninstaller Section ---
 Section "Uninstall"
-    Delete "$INSTDIR\Managed USB Hub.exe"
-    Delete "$INSTDIR\hub-cli.exe"
+    Delete "$INSTDIR\C2G USB Hub Manager.exe"
+    Delete "$INSTDIR\muhcli.exe"
     Delete "$INSTDIR\uninstall.exe"
 
-    Delete "$DESKTOP\Managed USB Hub.lnk"
-    Delete "$SMPROGRAMS\Managed USB Hub\Managed USB Hub.lnk"
-    Delete "$SMPROGRAMS\Managed USB Hub\Hub CLI.lnk"
-    Delete "$SMPROGRAMS\Managed USB Hub\Uninstall.lnk"
-    RMDir "$SMPROGRAMS\Managed USB Hub"
+    Delete "$DESKTOP\C2G USB Hub Manager.lnk"
+    Delete "$SMPROGRAMS\C2G USB Hub Manager\C2G USB Hub Manager.lnk"
+    Delete "$SMPROGRAMS\C2G USB Hub Manager\Hub CLI.lnk"
+    Delete "$SMPROGRAMS\C2G USB Hub Manager\Uninstall.lnk"
+    RMDir "$SMPROGRAMS\C2G USB Hub Manager"
 
     RMDir "$INSTDIR"
 
-    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ManagedUSBHub"
-    DeleteRegKey HKCU "Software\ManagedUSBHub"
+    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\C2GUSBHubManager"
+    DeleteRegKey HKCU "Software\C2G USB Hub Manager"
 SectionEnd

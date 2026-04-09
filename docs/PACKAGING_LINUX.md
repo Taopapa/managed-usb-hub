@@ -1,4 +1,4 @@
-# Managed USB Hub - Linux 环境开发与打包指南
+# C2G USB Hub Manager - Linux 环境开发与打包指南
 
 本文档详细介绍了如何在 Linux 环境（以 Ubuntu 为例）中配置开发环境、运行项目以及构建分发包（.deb 和 .AppImage）。
 
@@ -106,25 +106,25 @@ vendor: "Your Company"
 homepage: "https://github.com/Taopapa/managed-usb-hub"
 license: "MIT"
 contents:
-- src: "build/bin/managed-usb-hub-wails"
-  dst: "/usr/bin/managed-usb-hub"
-- src: "build/bin/hub-cli"
-  dst: "/usr/bin/hub-cli"
+- src: "build/bin/c2g-usb-hub-manager"
+  dst: "/usr/bin/c2g-usb-hub-manager"
+- src: "build/bin/muhcli"
+  dst: "/usr/bin/muhcli"
 - src: "build/appicon.png"
-  dst: "/usr/share/icons/hicolor/512x512/apps/managed-usb-hub.png"
-- src: "linux/managed-usb-hub.desktop"
-  dst: "/usr/share/applications/managed-usb-hub.desktop"
+  dst: "/usr/share/icons/hicolor/512x512/apps/c2g-usb-hub-manager.png"
+- src: "linux/c2g-usb-hub-manager.desktop"
+  dst: "/usr/share/applications/c2g-usb-hub-manager.desktop"
 ```
 
 #### 步骤 3: 创建桌面快捷方式文件
-在项目根目录创建 `linux` 文件夹，并在其中创建 `managed-usb-hub.desktop` 文件：
+在项目根目录创建 `linux` 文件夹，并在其中创建 `c2g-usb-hub-manager.desktop` 文件：
 ```ini
 [Desktop Entry]
 Type=Application
-Name=Managed USB Hub
-Comment=Control your Managed USB Hub
-Exec=/usr/bin/managed-usb-hub
-Icon=managed-usb-hub
+Name=C2G USB Hub Manager
+Comment=Control your C2G USB Hub Manager
+Exec=/usr/bin/c2g-usb-hub-manager
+Icon=c2g-usb-hub-manager
 Terminal=false
 Categories=Utility;HardwareSettings;
 ```
@@ -133,10 +133,10 @@ Categories=Utility;HardwareSettings;
 ```bash
 # 确保先编译了二进制文件
 wails build -platform linux/amd64 -tags webkit2_41
-go build -o build/bin/hub-cli ./cmd/hub-cli
+go build -o build/bin/muhcli ./cmd/muhcli
 
 # 运行 nfpm 打包
-nfpm package --packager deb --target "build/bin/managed-usb-hub_1.0.4_amd64.deb"
+nfpm package --packager deb --target "build/bin/c2g-usb-hub-manager_1.0.4_amd64.deb"
 ```
 生成的 `.deb` 文件可以直接通过 `sudo dpkg -i ...` 安装。
 
@@ -158,21 +158,21 @@ mkdir -p AppDir/usr/share/applications
 mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps/
 
 # 复制二进制文件
-cp build/bin/managed-usb-hub-wails AppDir/usr/bin/managed-usb-hub
-cp build/bin/hub-cli AppDir/usr/bin/hub-cli
+cp "build/bin/C2G USB Hub Manager" AppDir/usr/bin/c2g-usb-hub-manager
+cp build/bin/muhcli AppDir/usr/bin/muhcli
 
 # 复制图标和桌面文件
-cp build/appicon.png AppDir/usr/share/icons/hicolor/256x256/apps/managed-usb-hub.png
-cp linux/managed-usb-hub.desktop AppDir/usr/share/applications/
+cp build/appicon.png AppDir/usr/share/icons/hicolor/256x256/apps/c2g-usb-hub-manager.png
+cp linux/c2g-usb-hub-manager.desktop AppDir/usr/share/applications/
 ```
 
 #### 步骤 3: 生成 AppImage
 ```bash
 # 设置环境变量指向主程序
 export VERSION=1.0.4
-linuxdeploy --appdir AppDir --output appimage --icon-file build/appicon.png --desktop-file linux/managed-usb-hub.desktop --executable AppDir/usr/bin/managed-usb-hub
+linuxdeploy --appdir AppDir --output appimage --icon-file build/appicon.png --desktop-file linux/c2g-usb-hub-manager.desktop --executable AppDir/usr/bin/c2g-usb-hub-manager
 ```
-生成的 `Managed_USB_Hub-1.0.4-x86_64.AppImage` 文件即为最终产物。
+生成的 `C2G_USB_Hub_Manager-1.0.4-x86_64.AppImage` 文件即为最终产物。
 
 ---
 

@@ -16,6 +16,10 @@ const props = defineProps({
 <template>
   <div class="ports-table-container">
     <table class="data-table">
+      <colgroup>
+        <col class="port-column">
+        <col class="status-column">
+      </colgroup>
       <thead>
         <tr>
           <th>Port</th>
@@ -40,12 +44,26 @@ const props = defineProps({
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .data-table th, .data-table td {
   border: 1px solid #ddd;
   padding: 4px 8px;
   text-align: left;
+}
+
+.port-column {
+  width: 80px;
+}
+
+.status-column {
+  width: 140px;
+}
+
+.data-table td:nth-child(2),
+.data-table th:nth-child(2) {
+  white-space: nowrap;
 }
 
 .data-table th {

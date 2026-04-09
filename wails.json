@@ -1,18 +1,18 @@
 {
-  "name": "managed-usb-hub-wails",
-  "outputfilename": "Managed USB Hub",
+  "name": "c2g-usb-hub-manager",
+  "outputfilename": "C2G USB Hub Manager",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
-    "name": "Your Name",
-    "email": "hello@example.com"
+    "name": "Qhyun",
+    "email": "qhyun@163.com"
   },
   "info": {
-    "companyName": "My Company",
-    "productName": "Managed USB Hub",
+    "companyName": "C2G",
+    "productName": "C2G USB Hub Manager",
     "productVersion": "1.0.0",
-    "copyright": "Copyright 2024"
+    "copyright": "Copyright 2026"
   }
 }

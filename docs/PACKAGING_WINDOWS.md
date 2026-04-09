@@ -1,4 +1,4 @@
-# Managed USB Hub - Windows 环境开发与打包指南
+# C2G USB Hub Manager - Windows 环境开发与打包指南
 
 本文档详细介绍了如何在 Windows 环境中配置开发环境、运行项目以及构建包含 GUI 和 CLI 的 Setup 安装包。
 
@@ -53,7 +53,7 @@ wails dev
 mkdir build/bin -ErrorAction SilentlyContinue
 
 # 编译 CLI 工具
-go build -o "build/bin/hub-cli.exe" ./cmd/hub-cli
+go build -o "build/bin/muhcli.exe" ./cmd/muhcli
 ```
 
 ### 步骤 2: 构建 GUI 并生成安装包
@@ -66,9 +66,9 @@ wails build -platform windows/amd64 -nsis
 ### 步骤 3: 获取安装包
 构建完成后，安装包将生成在 `build/bin` 目录下。
 
-*   **安装包文件**: `build/bin/Managed USB Hub-amd64-installer.exe`
-*   **主程序文件**: `build/bin/Managed USB Hub.exe`
-*   **CLI 工具**: `build/bin/hub-cli.exe`
+*   **安装包文件**: `build/bin/C2G USB Hub Manager-amd64-installer.exe`
+*   **主程序文件**: `build/bin/C2G USB Hub Manager.exe`
+*   **CLI 工具**: `build/bin/muhcli.exe`
 
 ---
 
@@ -77,8 +77,8 @@ wails build -platform windows/amd64 -nsis
 NSIS 脚本位于 `build/windows/installer/project.nsi`。如果您需要修改安装逻辑（例如修改安装目录、添加注册表项等），请编辑该文件。
 
 目前该脚本已配置为：
-1.  安装 `Managed USB Hub.exe` (GUI)。
-2.  安装 `hub-cli.exe` (CLI)。
+1.  安装 `C2G USB Hub Manager.exe` (GUI)。
+2.  安装 `muhcli.exe` (CLI)。
 3.  创建桌面快捷方式和开始菜单快捷方式。
 4.  提供卸载程序。
 
@@ -87,4 +87,4 @@ NSIS 脚本位于 `build/windows/installer/project.nsi`。如果您需要修改�
 ## 5. 常见问题排查
 
 *   **NSIS 错误**: 如果提示找不到 `makensis`，请检查 NSIS 是否安装正确，并将其路径添加到系统 PATH 环境变量中。
-*   **缺少文件**: 如果安装后发现缺少 `hub-cli.exe`，请确保在运行 `wails build` 之前先执行了**步骤 1** 中的 CLI 构建命令。
+*   **缺少文件**: 如果安装后发现缺少 `muhcli.exe`，请确保在运行 `wails build` 之前先执行了**步骤 1** 中的 CLI 构建命令。

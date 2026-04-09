@@ -1,6 +1,8 @@
 <script setup>
 import { defineProps, defineEmits, ref, watch } from 'vue'
 
+const DEFAULT_PASSWORD = 'pass    '
+
 const props = defineProps({
   show: Boolean,
   initialOld: String
@@ -14,15 +16,15 @@ const confirmPass = ref('')
 
 watch(() => props.show, (newVal) => {
   if (newVal) {
-    oldPass.value = props.initialOld || ''
-    newPass.value = 'pass    '
-    confirmPass.value = 'pass    '
+    oldPass.value = props.initialOld || DEFAULT_PASSWORD
+    newPass.value = DEFAULT_PASSWORD
+    confirmPass.value = DEFAULT_PASSWORD
   }
 })
 
 const submit = () => {
   emit('submit', {
-    old: oldPass.value,
+    old: oldPass.value || props.initialOld || DEFAULT_PASSWORD,
     new: newPass.value,
     confirm: confirmPass.value
   })
@@ -70,7 +72,7 @@ const cancel = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10001;
 }
 
 .modal {

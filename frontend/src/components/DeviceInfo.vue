@@ -11,13 +11,12 @@ const props = defineProps({
 
 <template>
   <div class="hub-info" v-if="device">
-    <div class="info-text">
-      <div class="model-number">C2G54464</div>
-      <div class="description">C2G 7-Port USB-A Hub</div>
-    </div>
     <div class="hub-image">
-      <!-- Placeholder for Hub Image -->
-      <div class="img-placeholder">Hub Image</div>
+      <img src="../static/product.png" alt="Hub Image" class="product-image" />
+    </div>
+    <div class="info-text">
+      <div class="model-number">C2G USB Hub Manager</div>
+      <div class="description">Managed USB Hub</div>
     </div>
   </div>
 </template>
@@ -27,17 +26,13 @@ const props = defineProps({
   display: flex;
   gap: 10px;
   align-items: center;
+  width: 45%;
 }
 
-.hub-image .img-placeholder {
+.hub-image .product-image {
   width: 100px;
-  height: 30px;
-  background-color: #333;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
+  height: auto;
   border-radius: 2px;
+  margin-right: 20px;
 }
 </style>

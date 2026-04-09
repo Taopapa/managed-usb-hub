@@ -3,8 +3,10 @@ module managed-usb-hub-wails
 go 1.22.0
 
 require (
+	github.com/sirupsen/logrus v1.9.4
 	github.com/wailsapp/wails/v2 v2.11.0
 	go.bug.st/serial v1.6.4
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (

@@ -1,11 +1,12 @@
 <script setup>
-import { inject } from 'vue'
-import { SendCommand } from '../../wailsjs/go/main/App'
+import { ref } from 'vue'
+import { SetPortStatus, ResetHub, RestoreDefault, SavePortStates } from '../../wailsjs/go/main/App'
 import { useDeviceStore } from '../stores/devices'
 import { useAuthStore } from '../stores/auth'
 import { useLogStore } from '../stores/logs'
 import { useUIStore } from '../stores/ui'
 import { storeToRefs } from 'pinia'
+import { CONSTANTS } from '../config/constants'
 
 import connectedIcon from '../static/connected.png'
 import disconnectedIcon from '../static/disconnect.png'
@@ -19,13 +20,42 @@ const { currentDevice, selectedDeviceTotalPorts, devices } = storeToRefs(deviceS
 const { portStates } = deviceStore // direct access to reactive object
 const { autoSearch, selectDevice, disconnect } = deviceStore
 const { addLog } = logStore
-const { executeWithAuth } = authStore
+const { executeWithAuth, markPasswordRejected, clearSessionPassword } = authStore
 const { showSetPasswordModal, setPassOld } = storeToRefs(authStore)
-const { showAlert } = uiStore
+const { showAlert, showConfirm } = uiStore
+const isPortCommandPending = ref(false)
+
+const reconnectDeviceAfterCommand = async (devId, delayMs = 3000, options = {}) => {
+    const { resetToAllOn = false, clearPassword = false } = options
+
+    if (clearPassword) {
+        await clearSessionPassword(devId)
+    }
+
+    await disconnect()
+    currentDevice.value = null
+
+    await new Promise(r => setTimeout(r, delayMs))
+
+    const foundDev = await autoSearch(devId)
+    if (foundDev) {
+        await selectDevice(foundDev)
+    } else if (devices.value.length === 1) {
+        await selectDevice(devices.value[0])
+    } else {
+        addLog('Warn', 'Device not found after command; please scan and reconnect.', devId)
+        return
+    }
+
+    if (resetToAllOn) {
+        for (let i = 1; i <= 16; i++) portStates[i] = true
+    }
+}
 
 const togglePort = (n) => {
     if (!currentDevice.value) return
     if (n > selectedDeviceTotalPorts.value) return
+    if (isPortCommandPending.value) return
     executeWithAuth(async () => {
         const newStates = { ...portStates }
         newStates[n] = !newStates[n]
@@ -39,80 +69,91 @@ const togglePort = (n) => {
     })
 }
 
-const sendSPCommand = async (newPortStates, logDescription, retryCallback) => {
-    let password = currentDevice.value ? currentDevice.value.sessionPassword : null
+const sendSPCommand = async (newPortStates, logDescription, retryCallback, attempt = 0) => {
+    let password = currentDevice.value ? (currentDevice.value.sessionPassword || CONSTANTS.DEFAULT_PASSWORD) : null
     
     if (!currentDevice.value || !password) {
         return
     }
 
     const statesToUse = newPortStates || portStates
-    const total = selectedDeviceTotalPorts.value
-    const onCount = Object.values(statesToUse).filter(v => v).length
-    let maskHex = ""
-
-    if (onCount === total && total > 0) {
-        maskHex = "FFFFFFFF"
-    } else if (onCount === 0) {
-        maskHex = "00000000"
-    } else {
-        let byte0 = 0x80
-        for (let i = 1; i <= 7; i++) {
-            if (statesToUse[i]) byte0 |= (1 << (i - 1))
-        }
-        maskHex = byte0.toString(16).toUpperCase().padStart(2, '0') + "FFFFFF"
+    if (isPortCommandPending.value) {
+        return
     }
-
-    const cmd = `SP${password}${maskHex}`
+    isPortCommandPending.value = true
     try {
-        const resp = await SendCommand(currentDevice.value.portId, cmd)
+        const resp = await SetPortStatus(currentDevice.value.portId, password, statesToUse, selectedDeviceTotalPorts.value)
         console.log(resp)
+        const normalizedResp = String(resp || '').trim()
+        const looksLikeStateResponse = normalizedResp.startsWith('G') || /^[0-9A-Fa-f]{2,8}$/.test(normalizedResp)
+        if (!resp || !String(resp).trim()) {
+             addLog('Error', 'No response from device for SetPortStatus', currentDevice.value.portId)
+             if(showAlert) showAlert('Device did not respond to the port command.', "Communication Error")
+             return
+        }
         if (resp && resp.includes('E01')) {
-             currentDevice.value.sessionPassword = null
+             await markPasswordRejected(currentDevice.value.portId)
+             
+             if (attempt >= CONSTANTS.MAX_AUTH_RETRIES) {
+                 // Stop recursion and show error
+                 addLog('Error', 'Authentication failed after retry', currentDevice.value.portId)
+                 if(showAlert) showAlert('Device authentication failed. It may be locked or communication is disrupted.', "Error")
+                 return
+             }
+             
              // Trigger re-auth and retry via callback if provided
              if (retryCallback) {
                  // Force auth because we know current password failed
                  executeWithAuth(async () => {
-                     retryCallback()
+                     // Since executeWithAuth resolves when auth succeeds, we now call the retry logic.
+                     await retryCallback(attempt + 1)
                  }, null, true)
              } else {
                  // Fallback if no callback
                  executeWithAuth(async () => {
-                     await sendSPCommand(newPortStates, logDescription)
+                     await sendSPCommand(newPortStates, logDescription, null, attempt + 1)
                  }, null, true)
              }
              return
-        } else if (resp && resp.startsWith('G')) {
+        } else if (looksLikeStateResponse) {
              // Update local state to match
-             for(let i=1; i<=16; i++) portStates[i] = statesToUse[i]
+             for(let i=1; i<=CONSTANTS.MAX_PORTS; i++) portStates[i] = !!statesToUse[i]
              addLog('Command', logDescription || 'Port states updated', currentDevice.value.portId)
+        } else {
+             addLog('Error', `Unexpected response for SetPortStatus: ${normalizedResp}`, currentDevice.value.portId)
+             if(showAlert) showAlert(`Unexpected device response: ${normalizedResp}`, "Communication Error")
         }
     } catch(e) {
         addLog('Error', 'Command failed: ' + e, currentDevice.value.portId)
+        if(showAlert) showAlert('Port command failed: ' + e, "Error")
+    } finally {
+        isPortCommandPending.value = false
     }
 }
 
 const allOn = () => {
+    if (isPortCommandPending.value) return
     executeWithAuth(async () => {
         const newStates = { ...portStates }
         const total = selectedDeviceTotalPorts.value
         for (let i = 1; i <= total; i++) newStates[i] = true
         
-        const performAllOn = async () => {
-            await sendSPCommand(newStates, "All Ports Enabled", performAllOn)
+        const performAllOn = async (attempt = 0) => {
+            await sendSPCommand(newStates, "All Ports Enabled", performAllOn, attempt)
         }
         await performAllOn()
     })
 }
 
 const allOff = () => {
+    if (isPortCommandPending.value) return
     executeWithAuth(async () => {
         const newStates = { ...portStates }
         const total = selectedDeviceTotalPorts.value
         for (let i = 1; i <= total; i++) newStates[i] = false
         
-        const performAllOff = async () => {
-            await sendSPCommand(newStates, "All Ports Disabled", performAllOff)
+        const performAllOff = async (attempt = 0) => {
+            await sendSPCommand(newStates, "All Ports Disabled", performAllOff, attempt)
         }
         await performAllOff()
     })
@@ -120,38 +161,48 @@ const allOff = () => {
 
 const setPasswordAction = async () => {
     executeWithAuth(async () => {
-        setPassOld.value = currentDevice.value.sessionPassword || "pass    "
+        setPassOld.value = currentDevice.value.sessionPassword || CONSTANTS.DEFAULT_PASSWORD
         showSetPasswordModal.value = true
     })
 }
 
-const resetHubAction = async () => {
+const resetHubAction = async (attempt = 0) => {
+    // Only prompt for confirmation on the first attempt
+    if (attempt === 0) {
+        const confirmed = await showConfirm(`Are you sure you want to reset the hub? This will disrupt all connections temporarily.`, 'Confirm Reset Hub')
+        if (!confirmed) return
+    }
+
     executeWithAuth(async () => {
-        let password = currentDevice.value.sessionPassword
-        const cmd = `RH${password}`
+        let password = currentDevice.value.sessionPassword || CONSTANTS.DEFAULT_PASSWORD
         try {
-            const resp = await SendCommand(currentDevice.value.portId, cmd)
+            const resp = await ResetHub(currentDevice.value.portId, password)
             
             if (resp && resp.includes('E01')) {
-                 currentDevice.value.sessionPassword = null
-                 resetHubAction()
+                 await markPasswordRejected(currentDevice.value.portId)
+                 if (attempt >= CONSTANTS.MAX_AUTH_RETRIES) {
+                     addLog('Error', 'Reset Hub authentication failed', currentDevice.value.portId)
+                     if(showAlert) showAlert('Device authentication failed. Cannot reset hub.', "Error")
+                     return
+                 }
+                 executeWithAuth(async () => {
+                     await resetHubAction(attempt + 1)
+                 }, null, true)
                  return
             }
             
             addLog('User Action', 'Reset Hub command sent', currentDevice.value.portId)
             
-            // Silent success, but trigger reconnect flow
-            
             const devId = currentDevice.value.portId
-            await disconnect()
-            currentDevice.value = null
-            
-            // Auto-refresh after 3s
             setTimeout(async () => {
-                const foundDev = await autoSearch(devId)
-                if (foundDev) {
-                    await selectDevice(foundDev)
-                }
+                await reconnectDeviceAfterCommand(devId, 3000)
+                
+                // After reconnecting, actively fetch the real device name
+                executeWithAuth(async () => {
+                    try {
+                        await authStore.handlePasswordSubmit(password)
+                    } catch(e) {}
+                }, null, false)
             }, 3000)
         } catch(e) {
             if(showAlert) showAlert('Failed to reset hub: ' + e, "Error")
@@ -159,32 +210,42 @@ const resetHubAction = async () => {
     })
 }
 
-const restoreDefaultAction = async () => {
+const restoreDefaultAction = async (attempt = 0) => {
+    if (attempt === 0) {
+        const confirmed = await showConfirm(`Are you sure you want to restore the hub to factory defaults? All settings will be lost.`, 'Confirm Restore Default')
+        if (!confirmed) return
+    }
+
     executeWithAuth(async () => {
-        let password = currentDevice.value.sessionPassword || "pass    "
-        const cmd = `RD${password}`
+        let password = currentDevice.value.sessionPassword || CONSTANTS.DEFAULT_PASSWORD
         try {
-            const resp = await SendCommand(currentDevice.value.portId, cmd)
+            const resp = await RestoreDefault(currentDevice.value.portId, password)
             
             if (resp && resp.includes('E01')) {
-                 currentDevice.value.sessionPassword = null
-                 restoreDefaultAction()
+                 await markPasswordRejected(currentDevice.value.portId)
+                 if (attempt >= CONSTANTS.MAX_AUTH_RETRIES) {
+                     addLog('Error', 'Restore Default authentication failed', currentDevice.value.portId)
+                     if(showAlert) showAlert('Device authentication failed. Cannot restore defaults.', "Error")
+                     return
+                 }
+                 executeWithAuth(async () => {
+                     await restoreDefaultAction(attempt + 1)
+                 }, null, true)
                  return
             }
             
             addLog('User Action', 'Restored to default settings', currentDevice.value.portId)
             
-            const dev = currentDevice.value
-            await disconnect()
-            currentDevice.value = null
+            const devId = currentDevice.value.portId
+            await reconnectDeviceAfterCommand(devId, 3000, { resetToAllOn: true, clearPassword: true })
             
-            await new Promise(r => setTimeout(r, 1000))
-            await selectDevice(dev)
-            
-            for(let i=1; i<=16; i++) portStates[i] = true
-            
-            // Silent success
-            // if(showAlert) showAlert('Device restored to defaults and reconnected.', "Success")
+            // After reconnecting, actively fetch the real device name
+            executeWithAuth(async () => {
+                try {
+                    // Trigger a name refresh behind the scenes using the current (default) password
+                    await authStore.handlePasswordSubmit(CONSTANTS.DEFAULT_PASSWORD)
+                } catch(e) {}
+            }, null, false)
             
         } catch (e) {
              addLog('Error', 'Restore Default failed: ' + e, currentDevice.value ? currentDevice.value.portId : 'System')
@@ -193,33 +254,38 @@ const restoreDefaultAction = async () => {
     })
 }
 
-const savePortStates = async () => {
+const savePortStates = async (attempt = 0) => {
+    if (attempt === 0) {
+        const confirmed = await showConfirm(`Are you sure you want to save current port states to device memory? They will be applied on the next boot.`, 'Confirm Save Port States')
+        if (!confirmed) return
+    }
+
     executeWithAuth(async () => {
-        let password = currentDevice.value.sessionPassword
-        const cmd = `WP${password}`
+        let password = currentDevice.value.sessionPassword || CONSTANTS.DEFAULT_PASSWORD
         try {
-            const resp = await SendCommand(currentDevice.value.portId, cmd)
+            const resp = await SavePortStates(currentDevice.value.portId, password)
             
             if (resp && resp.startsWith('G')) {
                 addLog('User Action', 'Port states saved to device memory', currentDevice.value.portId)
                 
-                const dev = currentDevice.value
-                await disconnect()
-                currentDevice.value = null
-
-                await new Promise(r => setTimeout(r, 1000))
+                const devId = currentDevice.value.portId
+                await reconnectDeviceAfterCommand(devId, 1000)
                 
-                await autoSearch()
-                const foundDev = devices.value.find(d => d.portId === dev.portId)
-                if (foundDev) {
-                    await selectDevice(foundDev)
-                }
-                
-                // Silent success
-                // if(showAlert) showAlert('Port states saved successfully and device reconnected.', "Success")
+                executeWithAuth(async () => {
+                    try {
+                        await authStore.handlePasswordSubmit(password)
+                    } catch(e) {}
+                }, null, false)
             } else if (resp && resp.includes('E01')) {
-                 currentDevice.value.sessionPassword = null
-                 savePortStates()
+                 await markPasswordRejected(currentDevice.value.portId)
+                 if (attempt >= CONSTANTS.MAX_AUTH_RETRIES) {
+                     addLog('Error', 'Save Port States authentication failed', currentDevice.value.portId)
+                     if(showAlert) showAlert('Device authentication failed. Cannot save states.', "Error")
+                     return
+                 }
+                 executeWithAuth(async () => {
+                     await savePortStates(attempt + 1)
+                 }, null, true)
             } else {
                  addLog('Error', `Save Port States failed: ${resp}`, currentDevice.value.portId)
                  if(showAlert) showAlert(`Failed to save port states. Device responded: ${resp}`, "Error")
@@ -237,12 +303,12 @@ const savePortStates = async () => {
         <div class="control-label">Click a port to toggle state</div>
         <div class="control-row">
             <div class="left-buttons">
-                <button @click="allOn" :disabled="!currentDevice">Enable All</button>
-                <button @click="allOff" :disabled="!currentDevice">Disable All</button>
+                <button @click="allOn" :disabled="!currentDevice || isPortCommandPending">Enable All</button>
+                <button @click="allOff" :disabled="!currentDevice || isPortCommandPending">Disable All</button>
             </div>
             
             <div class="ports-visual">
-                <div v-for="n in 7" :key="n" 
+                <div v-for="n in selectedDeviceTotalPorts" :key="n" 
                      class="port-icon" 
                      :class="{ 'enabled': portStates[n], 'disabled': !portStates[n] }"
                      @click="togglePort(n)">
@@ -255,10 +321,10 @@ const savePortStates = async () => {
             </div>
 
             <div class="right-buttons">
-                <button @click="setPasswordAction" :disabled="!currentDevice">Set Password</button>
-                <button @click="resetHubAction" :disabled="!currentDevice">Reset Hub</button>
-                <button @click="restoreDefaultAction" :disabled="!currentDevice">Restore Default</button>
-                <button @click="savePortStates" :disabled="!currentDevice">Save Port States</button>
+                <button @click="setPasswordAction" :disabled="!currentDevice || isPortCommandPending">Set Password</button>
+                <button @click="resetHubAction" :disabled="!currentDevice || isPortCommandPending">Reset Hub</button>
+                <button @click="restoreDefaultAction" :disabled="!currentDevice || isPortCommandPending">Restore Default</button>
+                <button @click="savePortStates" :disabled="!currentDevice || isPortCommandPending">Save Port States</button>
             </div>
         </div>
     </div>
