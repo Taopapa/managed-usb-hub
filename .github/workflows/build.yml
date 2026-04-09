@@ -85,6 +85,9 @@ jobs:
       - name: Package Output
         run: |
           mkdir -p dist _pkg
+          # 拷贝安装脚本
+          cp scripts/install.sh _pkg/ || true
+          
           if [ "${{ matrix.arch }}" == "amd64" ]; then
             # Gather GUI + CLI into a staging directory
             if [ -d "build/bin/linux-amd64" ]; then
@@ -94,15 +97,23 @@ jobs:
             elif [ -d "build/bin" ]; then
               cp -a build/bin/* _pkg/ || true
             fi
+            
             # Ensure CLI is included if built into build/bin
             if [ -f "build/bin/muhcli" ]; then
               cp build/bin/muhcli _pkg/
             fi
+            
+            # Copy Icon if it exists
+            if [ -f "build/appicon.png" ]; then
+              cp build/appicon.png _pkg/
+            fi
+
             tar -czvf "dist/managed-usb-hub-linux-amd64.tar.gz" -C _pkg .
           else
             # CLI-only packages for ARM64/ARM
             if [ -f "build/bin/muhcli" ]; then
-              tar -czvf "dist/managed-usb-hub-linux-${{ matrix.arch }}-cli.tar.gz" -C build/bin muhcli
+              cp build/bin/muhcli _pkg/
+              tar -czvf "dist/managed-usb-hub-linux-${{ matrix.arch }}-cli.tar.gz" -C _pkg muhcli install.sh
             else
               echo "muhcli not found in build/bin" && ls -la build/bin && exit 1
             fi

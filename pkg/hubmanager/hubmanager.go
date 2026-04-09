@@ -2,6 +2,7 @@ package hubmanager
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -11,6 +12,22 @@ import (
 
 	"go.bug.st/serial"
 )
+
+func normalizePortPath(path string) string {
+	if runtime.GOOS != "windows" {
+		if !strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "COM") {
+			return "/dev/" + path
+		}
+	}
+	return path
+}
+
+func stripDevPrefix(path string) string {
+	if runtime.GOOS != "windows" {
+		return strings.TrimPrefix(path, "/dev/")
+	}
+	return path
+}
 
 // DeviceInfo represents the information of a discovered hub device
 type DeviceInfo struct {
@@ -72,8 +89,10 @@ func (hm *HubManager) openPortWithRetry(path string) (serial.Port, error) {
 	retryDelay := 10 * time.Millisecond
 	openRetryAttempts := 5
 
+	normalizedPath := normalizePortPath(path)
+
 	for attempt := 1; attempt <= openRetryAttempts; attempt++ {
-		p, err = serial.Open(path, &serial.Mode{
+		p, err = serial.Open(normalizedPath, &serial.Mode{
 			BaudRate: config.DefaultBaudRate,
 		})
 
@@ -523,7 +542,7 @@ func (hm *HubManager) probeDevice(path string) DeviceInfo {
 			}
 
 			return DeviceInfo{
-				Path:          path,
+				Path:          stripDevPrefix(path),
 				AsciiResponse: idAscii,
 				ProbeResponse: idAscii,
 				DeviceName:    deviceName,
