@@ -1,0 +1,102 @@
+name: Build Linux Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Linux ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: arm64
+            platform: linux/arm64
+          - arch: arm
+            platform: linux/arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install Dependencies & Cross-compilers
+        run: |
+          sudo apt-get update
+          if [ "${{ matrix.arch }}" == "arm64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu build-essential pkg-config
+          elif [ "${{ matrix.arch }}" == "arm" ]; then
+            sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf build-essential pkg-config
+          else
+            sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config
+          fi
+
+      - name: Build CLI Tool
+        shell: bash
+        run: |
+          mkdir -p build/bin
+          if [ "${{ matrix.arch }}" == "arm64" ]; then
+             export GOARCH=arm64
+             export CC=aarch64-linux-gnu-gcc
+             export CGO_ENABLED=1
+          elif [ "${{ matrix.arch }}" == "arm" ]; then
+             export GOARCH=arm
+             export GOARM=7
+             export CC=arm-linux-gnueabihf-gcc
+             export CGO_ENABLED=1
+          fi
+          go build -o "build/bin/muhcli" ./cmd/muhcli
+
+      - name: Build GUI App
+        shell: bash
+        run: |
+          if [ "${{ matrix.arch }}" == "amd64" ]; then
+             echo "Building AMD64 GUI..."
+             wails build -platform linux/amd64 -tags webkit2_41
+          else
+             echo "Skipping GUI build for Linux ${{ matrix.arch }} (CLI only)"
+          fi
+
+      - name: Package Output
+        run: |
+          cd build/bin
+          if [ "${{ matrix.arch }}" == "amd64" ]; then
+            tar -czvf "managed-usb-hub-linux-amd64.tar.gz" ./*
+          else
+            tar -czvf "managed-usb-hub-linux-${{ matrix.arch }}-cli.tar.gz" muhcli
+          fi
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}-build
+          path: build/bin/*.tar.gz
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: build/bin/*.tar.gz
