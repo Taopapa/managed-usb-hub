@@ -33,7 +33,7 @@ const cancel = () => {
     <div class="modal">
       <div class="modal-header">Authentication Required</div>
       <div class="modal-body">
-        <p>Enter Password (8 chars max):</p>
+        <p>Enter Password (3-8 chars):</p>
         <input 
           type="password" 
           v-model="password" 

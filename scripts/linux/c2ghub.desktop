@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=C2G USB Hub Manager
+Comment=Manage and monitor C2G 7-port USB Hubs
+Exec=/opt/c2g-usb-hub/managed-usb-hub-wails
+Icon=utilities-terminal
+Terminal=false
+Categories=Utility;HardwareSettings;
+Keywords=usb;hub;manager;c2g;

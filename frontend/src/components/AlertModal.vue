@@ -18,7 +18,7 @@ const close = () => {
 </script>
 
 <template>
-  <div class="modal-overlay" v-if="show" style="z-index: 9999;">
+  <div class="modal-overlay" v-if="show" style="z-index: 99999;">
     <div class="modal alert-modal">
       <div class="modal-header">{{ title }}</div>
       <div class="modal-body alert-message">

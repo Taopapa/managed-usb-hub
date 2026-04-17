@@ -40,6 +40,7 @@ const cancel = () => {
     <div class="modal">
       <div class="modal-header">Change Password</div>
       <div class="modal-body form-body">
+        <p style="font-size: 12px; margin-top: 0; margin-bottom: 5px; color: #666;">Password must be 3-8 characters.</p>
         <div class="form-group">
           <label>Old Password:</label>
           <input type="password" v-model="oldPass" maxlength="8">

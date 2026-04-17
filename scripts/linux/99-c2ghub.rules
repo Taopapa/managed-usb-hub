@@ -1,0 +1,13 @@
+# 99-c2ghub.rules - Udev Rules for C2G 7-port Managed USB HUB
+# Place this file in /etc/udev/rules.d/
+
+# Allow read/write access to all users for ttyUSB devices that match the C2G Hub
+# Currently matching generically for ttyUSB* but it's recommended to match the exact Vendor/Product ID if known.
+# Example: ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", MODE="0666", GROUP="dialout"
+
+# Broad fallback rule (Grants rw permissions to the dialout group)
+SUBSYSTEM=="tty", KERNEL=="ttyUSB*", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="tty", KERNEL=="ttyACM*", GROUP="dialout", MODE="0660"
+
+# Optional: If you want to create a fixed symlink like /dev/c2ghub1, uncomment and modify below:
+# SUBSYSTEM=="tty", ATTRS{idVendor}=="YOUR_VID", ATTRS{idProduct}=="YOUR_PID", SYMLINK+="c2ghub%n", MODE="0666"

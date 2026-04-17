@@ -118,7 +118,7 @@ export const useAuthStore = defineStore('auth', () => {
                     deviceStore.currentDevice.deviceName = finalName
                     deviceStore.currentDevice.displayName = finalName 
                         ? `${finalName} (${deviceStore.currentDevice.portId})` 
-                        : `C2G USB Hub Manager (${deviceStore.currentDevice.portId})`
+                        : `C2G 7-port Managed USB HUB (${deviceStore.currentDevice.portId})`
                     
                     const matchedDevice = deviceStore.devices.find(d => d.portId === deviceStore.currentDevice.portId)
                     if (matchedDevice) {
@@ -146,8 +146,8 @@ export const useAuthStore = defineStore('auth', () => {
             return
         }
         
-        if (newPass.length > 8) {
-            uiStore.showAlert("Password must be 8 characters or less.", "Validation Error")
+        if (newPass.length < 3 || newPass.length > 8) {
+            uiStore.showAlert("Password must be 3 to 8 characters.", "Validation Error")
             return
         }
         

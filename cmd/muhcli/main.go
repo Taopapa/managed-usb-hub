@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"managed-usb-hub-wails/pkg/hubmanager"
+	"managed-usb-hub-wails/pkg/jsonapi"
 	"managed-usb-hub-wails/pkg/logger"
 )
 
@@ -44,7 +45,7 @@ func main() {
 	// 2. Handle Git Bash / Shell path conversion (e.g. /Q -> C:/.../Q or Q:/)
 	if !strings.HasPrefix(arg, "/") {
 		upper := strings.ToUpper(arg)
-		cmds := []string{"Q", "S", "F", "P", "G", "W", "T", "X", "U", "D", "R", "J"}
+		cmds := []string{"Q", "S", "F", "P", "G", "W", "T", "X", "B", "C", "U", "D", "R", "J"}
 
 		found := false
 		for _, c := range cmds {
@@ -161,6 +162,24 @@ func main() {
 			return
 		}
 		handleSetDeviceName(port, os.Args[2:])
+	case "/B":
+		if port == "" {
+			fmt.Println("Invalid Command!")
+			return
+		}
+		handleSetVBUSPower(port, true, os.Args[2:])
+	case "/C":
+		if port == "" {
+			fmt.Println("Invalid Command!")
+			return
+		}
+		handleSetVBUSPower(port, false, os.Args[2:])
+	case "/U":
+		if port == "" {
+			fmt.Println("Invalid Command!")
+			return
+		}
+		handleGetDeviceName(port, os.Args[2:])
 	case "/D":
 		if port == "" {
 			fmt.Println("Invalid Command!")
@@ -173,6 +192,16 @@ func main() {
 			return
 		}
 		handleSimpleCommand(port, "RT", os.Args[2:])
+	case "/J":
+		if len(os.Args) < 3 {
+			fmt.Println("Error: Missing JSON string argument")
+			return
+		}
+		jsonStr := os.Args[2]
+		resp := jsonapi.ProcessCommand(hm, jsonStr)
+		if resp != "" {
+			fmt.Print(resp)
+		}
 	default:
 		fmt.Println("Invalid Command!")
 	}
@@ -241,7 +270,7 @@ func printUsage() {
 	fmt.Println("    Usage:    similar to set port states (/S)")
 	fmt.Println("")
 
-	fmt.Println("    /P        change password (8 characters maximum)")
+	fmt.Println("    /P        change password (3 to 8 characters)")
 	if isWindows {
 		fmt.Printf("    Usage:    %s.exe /P:COM [old_password] new_password\n", exeName)
 		fmt.Println("    COM       control port COMn (n = 1 to 255), or UID0123459789AB")
@@ -297,11 +326,43 @@ func printUsage() {
 	}
 	fmt.Println("")
 
-	fmt.Println("    /X        set Device Name (up to 8 chars) (password is required)")
+	fmt.Println("    /U        read Device Name (password is required)")
+	if isWindows {
+		fmt.Printf("    Usage:    %s.exe /U:COM [pass]\n", exeName)
+	} else {
+		fmt.Printf("    Usage:    ./%s /U:PORT [pass]\n", exeName)
+	}
+	fmt.Println("")
+
+	fmt.Println("    /X        set Device Name (up to 30 chars) (password is required)")
 	if isWindows {
 		fmt.Printf("    Usage:    %s.exe /X:COM [pass] 'name'\n", exeName)
 	} else {
 		fmt.Printf("    Usage:    ./%s /X:PORT [pass] 'name'\n", exeName)
+	}
+	fmt.Println("")
+
+	fmt.Println("    /B        power on VBUS (password is required)")
+	if isWindows {
+		fmt.Printf("    Usage:    %s.exe /B:COM [pass]\n", exeName)
+	} else {
+		fmt.Printf("    Usage:    ./%s /B:PORT [pass]\n", exeName)
+	}
+	fmt.Println("")
+
+	fmt.Println("    /C        power off VBUS (password is required)")
+	if isWindows {
+		fmt.Printf("    Usage:    %s.exe /C:COM [pass]\n", exeName)
+	} else {
+		fmt.Printf("    Usage:    ./%s /C:PORT [pass]\n", exeName)
+	}
+	fmt.Println("")
+
+	fmt.Println("    /J        execute command via JSON payload")
+	if isWindows {
+		fmt.Printf("    Usage:    %s.exe /J '{\"CMD\":\"Q\"}'\n", exeName)
+	} else {
+		fmt.Printf("    Usage:    ./%s /J '{\"CMD\":\"Q\"}'\n", exeName)
 	}
 	fmt.Println("")
 }
@@ -916,6 +977,11 @@ func handleChangePassword(port string, args []string) {
 		return
 	}
 
+	if len(newPass) < 3 || len(newPass) > 8 {
+		fmt.Println("Error: Password must be 3 to 8 characters")
+		return
+	}
+
 	resp, err := hm.ChangePassword(port, oldPass, newPass)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -938,12 +1004,22 @@ func handleChangePassword(port string, args []string) {
 func handleGetDeviceName(port string, args []string) {
 	pass, _ := getPassword(args)
 
+	// Pad password to 8 chars
+	pass = padPassword(pass)
+
 	resp, err := hm.GetDeviceName(port, pass)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
 		// Handle E01 specifically
 		if strings.Contains(resp, "E01") {
+			fmt.Println("password error")
+			return
+		}
+
+		// Check for E02 or other errors
+		if strings.Contains(resp, "E") && !strings.HasPrefix(resp, "G") && !strings.HasPrefix(resp, "B") {
+			// Some commands might just return "E02" without anything else
 			fmt.Println("password error")
 			return
 		}
@@ -967,32 +1043,33 @@ func handleGetDeviceName(port string, args []string) {
 			resp = strings.TrimRight(resp[1:], " ")
 		}
 
+		if resp == "" {
+			resp = "C2G 7-port Managed USB HUB"
+		}
+
 		fmt.Printf("%s\n", resp)
 	}
 }
 
 func handleSetDeviceName(port string, args []string) {
-	pass, rest := getPassword(args)
-	if len(rest) == 0 {
-		fmt.Println("Device name string required")
+	pass, nameArgs := getPassword(args)
+	if len(nameArgs) == 0 {
+		fmt.Println("Error: Missing device name argument")
 		return
 	}
-	desc := strings.Join(rest, " ") // Handle spaces in desc if split by shell
 
-	// Remove quotes if present
-	desc = strings.Trim(desc, "'\"")
+	name := strings.Join(nameArgs, " ")
 
-	// Limit to 8 characters and pad with spaces if shorter
-	runes := []rune(desc)
-	if len(runes) > 8 {
-		runes = runes[:8]
-	}
-	desc = string(runes)
-	if len(runes) < 8 {
-		desc = desc + strings.Repeat(" ", 8-len(runes))
+	// Remove surrounding quotes if user provided them
+	if (strings.HasPrefix(name, "'") && strings.HasSuffix(name, "'")) ||
+		(strings.HasPrefix(name, "\"") && strings.HasSuffix(name, "\"")) {
+		name = name[1 : len(name)-1]
 	}
 
-	resp, err := hm.SetDeviceName(port, pass, desc)
+	// Pad password to 8 chars
+	pass = padPassword(pass)
+
+	resp, err := hm.SetDeviceName(port, pass, name)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
@@ -1002,7 +1079,31 @@ func handleSetDeviceName(port string, args []string) {
 			return
 		}
 
-		fmt.Printf("Result: %s\n", resp)
+		if strings.Contains(resp, "E") && !strings.HasPrefix(resp, "G") {
+			fmt.Printf("Result: %s\n", resp)
+		}
+	}
+}
+
+func handleSetVBUSPower(port string, enabled bool, args []string) {
+	pass, _ := getPassword(args)
+
+	// Pad password to 8 chars
+	pass = padPassword(pass)
+
+	resp, err := hm.SetVBUSPower(port, pass, enabled)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+	} else {
+		// Handle E01 specifically
+		if strings.Contains(resp, "E01") {
+			fmt.Println("password error")
+			return
+		}
+
+		if strings.Contains(resp, "E") && !strings.HasPrefix(resp, "G") {
+			fmt.Printf("Result: %s\n", resp)
+		}
 	}
 }
 

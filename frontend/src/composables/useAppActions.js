@@ -41,7 +41,11 @@ export const useAppActions = ({
 
     const refreshHub = async () => {
         if (currentDevice.value) {
-            await selectDevice(currentDevice.value)
+            const devId = currentDevice.value.portId
+            const foundDev = await autoSearchAction(devId)
+            if (foundDev) {
+                await selectDeviceAction(foundDev)
+            }
         }
         closeMenu()
     }
@@ -70,7 +74,7 @@ export const useAppActions = ({
     }
 
     const showAbout = () => {
-        showAlert(`C2G USB Hub Manager\nVersion ${APP_VERSION}\n(c) 2026 C2G`, 'About')
+        showAlert(`C2G USB Hub Manager v${APP_VERSION}\n\nCopyright © 2024-2026 Legrand AV Inc.`, 'About')
         closeMenu()
     }
 
@@ -78,7 +82,7 @@ export const useAppActions = ({
         if (!currentDevice.value) return
 
         const deviceName = name || ''
-        const fallbackDisplayName = `C2G USB Hub Manager (${currentDevice.value.portId})`
+        const fallbackDisplayName = `C2G 7-port Managed USB HUB (${currentDevice.value.portId})`
 
         currentDevice.value.deviceName = deviceName
         currentDevice.value.displayName = deviceName ? `${deviceName} (${currentDevice.value.portId})` : fallbackDisplayName

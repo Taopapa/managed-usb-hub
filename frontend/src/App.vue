@@ -192,7 +192,9 @@ watch(selectedTab, (newVal) => {
 
     <!-- Status Bar -->
     <div class="status-bar">
-        <div class="status-left">Ready</div>
+        <div class="status-left">
+            <!-- Ready -->
+        </div>
         <div class="status-right">{{ devicesFoundCount }} hub{{ devicesFoundCount !== 1 ? 's' : '' }} online</div>
     </div>
 

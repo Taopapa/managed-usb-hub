@@ -26,7 +26,7 @@ const pending = ref(false)
 
 watch(() => props.show, (visible) => {
   if (visible) {
-    deviceName.value = props.device?.deviceName || ''
+    deviceName.value = props.device?.deviceName || 'C2G 7-port Managed USB HUB'
     executeWithAuth(async () => {
       await loadDeviceName()
     })
@@ -35,17 +35,17 @@ watch(() => props.show, (visible) => {
 
 watch(() => props.device?.portId, (portId) => {
   if (props.show && portId) {
-    deviceName.value = props.device?.deviceName || ''
+    deviceName.value = props.device?.deviceName || 'C2G 7-port Managed USB HUB'
   }
 })
 
 const charCount = computed(() => Array.from(deviceName.value || '').length)
 
-const normalizeInputDeviceName = (value) => Array.from(String(value || '')).slice(0, 8).join('')
+const normalizeInputDeviceName = (value) => Array.from(String(value || '')).slice(0, 30).join('')
 
 const formatDeviceNameForCommand = (value) => {
   const normalized = normalizeInputDeviceName(value)
-  return normalized.padEnd(8, ' ')
+  return normalized.padEnd(30, ' ')
 }
 
 const normalizeDeviceNamePayload = (value) => {
@@ -181,8 +181,12 @@ const persistDeviceName = async (name, attempt = 0) => {
 }
 
 const save = () => {
-  if (charCount.value > 8) {
-    uiStore.showAlert('Device name must be 8 characters or less.', 'Validation Error')
+  if (charCount.value === 0) {
+    uiStore.showAlert('Device name cannot be empty.', 'Validation Error')
+    return
+  }
+  if (charCount.value > 30) {
+    uiStore.showAlert('Device name must be 30 characters or less.', 'Validation Error')
     return
   }
 
@@ -216,7 +220,7 @@ const save = () => {
             autocomplete="off"
             @input="handleDeviceNameInput"
           >
-          <div class="field-hint">{{ charCount }}/8 characters</div>
+          <div class="field-hint">{{ charCount }}/30 characters</div>
         </div>
         <div v-if="loading" class="status-text">Loading current device name...</div>
       </div>

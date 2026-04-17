@@ -93,8 +93,8 @@ export const parseDevice = (r) => {
         portId: r.path,
         portName: r.path, // e.g., COM5
         deviceName: deviceName,
-        displayName: deviceName ? `${deviceName} (${r.path})` : `C2G USB Hub Manager (${r.path})`,
-        description: 'C2G USB Hub Manager',
+        displayName: deviceName ? `${deviceName} (${r.path})` : `C2G 7-port Managed USB HUB (${r.path})`,
+        description: 'C2G 7-port Managed USB HUB',
         firmwareVersion: version,
         totalPorts: totalPorts,
         onPortsDisplay: onPortsList.length > 0 ? onPortsList.join(',') : '',

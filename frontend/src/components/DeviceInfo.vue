@@ -15,8 +15,7 @@ const props = defineProps({
       <img src="../static/product.png" alt="Hub Image" class="product-image" />
     </div>
     <div class="info-text">
-      <div class="model-number">C2G USB Hub Manager</div>
-      <div class="description">Managed USB Hub</div>
+      <div class="model-number">{{ device.deviceName || 'C2G 7-port Managed USB HUB' }}</div>
     </div>
   </div>
 </template>

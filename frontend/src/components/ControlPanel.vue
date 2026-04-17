@@ -216,6 +216,17 @@ const restoreDefaultAction = async (attempt = 0) => {
         if (!confirmed) return
     }
 
+    // Only force auth if the current session password is NOT the default password
+    let forceAuthForRestore = false;
+    if (attempt === 0 && currentDevice.value) {
+        const currentPass = currentDevice.value.sessionPassword || CONSTANTS.DEFAULT_PASSWORD;
+        if (currentPass !== CONSTANTS.DEFAULT_PASSWORD) {
+            // We want the user to type the password, so we clear the session password
+            authStore.clearSessionPassword(currentDevice.value.portId);
+            forceAuthForRestore = true;
+        }
+    }
+
     executeWithAuth(async () => {
         let password = currentDevice.value.sessionPassword || CONSTANTS.DEFAULT_PASSWORD
         try {
@@ -244,6 +255,18 @@ const restoreDefaultAction = async (attempt = 0) => {
                 try {
                     // Trigger a name refresh behind the scenes using the current (default) password
                     await authStore.handlePasswordSubmit(CONSTANTS.DEFAULT_PASSWORD)
+                    
+                    // Force a name reset in the UI to the default name since the device was restored
+                    if (currentDevice.value) {
+                        currentDevice.value.deviceName = 'C2G 7-port Managed USB HUB'
+                        currentDevice.value.displayName = `C2G 7-port Managed USB HUB (${currentDevice.value.portId})`
+                        
+                        const matchedDevice = devices.value.find(d => d.portId === currentDevice.value.portId)
+                        if (matchedDevice) {
+                            matchedDevice.deviceName = currentDevice.value.deviceName
+                            matchedDevice.displayName = currentDevice.value.displayName
+                        }
+                    }
                 } catch(e) {}
             }, null, false)
             
@@ -251,7 +274,7 @@ const restoreDefaultAction = async (attempt = 0) => {
              addLog('Error', 'Restore Default failed: ' + e, currentDevice.value ? currentDevice.value.portId : 'System')
              if(showAlert) showAlert('Restore Default failed: ' + e, "Error")
         }
-    })
+    }, null, forceAuthForRestore)
 }
 
 const savePortStates = async (attempt = 0) => {

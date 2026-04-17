@@ -98,9 +98,11 @@ const activeTab = ref('gui')
             <section>
               <h4>Configuration & Maintenance</h4>
               <ul class="cmd-list">
-                <li><code>/P:PORT [old] new</code> - Change password (max 8 chars).</li>
+                <li><code>/P:PORT [old] new</code> - Change password (3 to 8 chars).</li>
                 <li><code>/T:PORT [pass]</code> - Get Device Name.</li>
-                <li><code>/X:PORT [pass] 'name'</code> - Set Device Name (max 8 chars).</li>
+                <li><code>/X:PORT [pass] 'name'</code> - Set Device Name (max 30 chars).</li>
+                <li><code>/B:PORT [pass]</code> - Power ON VBUS.</li>
+                <li><code>/C:PORT [pass]</code> - Power OFF VBUS.</li>
                 <li><code>/W:PORT [pass]</code> - Save current states to flash as initial.</li>
                 <li><code>/D:PORT [pass]</code> - Restore factory defaults.</li>
                 <li><code>/R:PORT [pass]</code> - Reset the Hub.</li>
