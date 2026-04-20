@@ -24,6 +24,13 @@ echo "[*] Installing binaries to /usr/local/bin..."
 cp "C2G USB Hub Manager" /usr/local/bin/c2g-usb-hub-manager 2>/dev/null || true
 cp "muhcli" /usr/local/bin/muhcli 2>/dev/null || true
 
+# 尝试拷贝 README (如果包里有的话)
+if [ -f "README.txt" ]; then
+  mkdir -p /usr/local/share/doc/c2g-usb-hub-manager 2>/dev/null || true
+  cp "README.txt" /usr/local/share/doc/c2g-usb-hub-manager/ 2>/dev/null || true
+  echo "[*] Copied README.txt to /usr/local/share/doc/c2g-usb-hub-manager/"
+fi
+
 # 3. 创建桌面快捷方式 (仅当存在 GUI 文件时)
 if [ -f "C2G USB Hub Manager" ]; then
   echo "[*] Creating Desktop entry..."

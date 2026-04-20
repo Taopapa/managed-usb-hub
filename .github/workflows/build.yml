@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - master
   workflow_dispatch:
 
 permissions:
@@ -87,6 +85,7 @@ jobs:
           mkdir -p dist _pkg
           # 拷贝安装脚本
           cp scripts/install.sh _pkg/ || true
+          cp scripts/linux/README.txt _pkg/README.txt || true
           
           if [ "${{ matrix.arch }}" == "amd64" ]; then
             # Gather GUI + CLI into a staging directory
@@ -113,7 +112,7 @@ jobs:
             # CLI-only packages for ARM64/ARM
             if [ -f "build/bin/muhcli" ]; then
               cp build/bin/muhcli _pkg/
-              tar -czvf "dist/managed-usb-hub-linux-${{ matrix.arch }}-cli.tar.gz" -C _pkg muhcli install.sh
+              tar -czvf "dist/managed-usb-hub-linux-${{ matrix.arch }}-cli.tar.gz" -C _pkg muhcli install.sh README.txt
             else
               echo "muhcli not found in build/bin" && ls -la build/bin && exit 1
             fi
