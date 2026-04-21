@@ -11,7 +11,8 @@ export const useAppMenus = ({
     openVBUSPowerModal,
     runCli,
     openDocumentationModal,
-    showAbout
+    showAbout,
+    clearPassword
 }) => {
     return computed(() => [
         {
@@ -64,7 +65,7 @@ export const useAppMenus = ({
                 { key: 'sep-3', separator: true },
                 { key: 'run-cli', label: 'Run CLI Commands', onClick: runCli },
                 { key: 'sep-3', separator: true },
-                { key: 'clear-password', label: 'Clear Password', onClick: runCli },
+                { key: 'clear-password', label: 'Clear Password', onClick: clearPassword, disabled: !currentDevice.value },
             ]
         },
         {

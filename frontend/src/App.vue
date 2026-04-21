@@ -99,7 +99,8 @@ const {
     exportLogs,
     showAbout,
     updateSelectedDeviceName,
-    updateSelectedDeviceUid
+    updateSelectedDeviceUid,
+    clearPassword
 } = useAppActions({
     currentDevice,
     devices,
@@ -109,7 +110,8 @@ const {
     autoSearchAction,
     selectDeviceAction,
     checkDeviceAuth,
-    loadHistoryLogs
+    loadHistoryLogs,
+    authStore
 })
 
 const menus = useAppMenus({
@@ -123,7 +125,8 @@ const menus = useAppMenus({
     openVBUSPowerModal,
     runCli,
     openDocumentationModal,
-    showAbout
+    showAbout,
+    clearPassword
 })
 
 // Watchers

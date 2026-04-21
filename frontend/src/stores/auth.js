@@ -38,10 +38,10 @@ export const useAuthStore = defineStore('auth', () => {
         sessionPasswords.delete(portId)
 
         if (deviceStore.currentDevice?.portId === portId) {
-            deviceStore.currentDevice.sessionPassword = ''
+            deviceStore.currentDevice.sessionPassword = '' // Clear this completely so hasActivePassword is false
         }
 
-        authPromptPassword.value = CONSTANTS.DEFAULT_PASSWORD
+        authPromptPassword.value = CONSTANTS.DEFAULT_PASSWORD // Pre-fill with default password
         await SetStoredPassword(portId, "")
     }
 
@@ -52,6 +52,16 @@ export const useAuthStore = defineStore('auth', () => {
             return
         }
         const portId = deviceStore.currentDevice.portId
+        
+        // If it's explicitly marked as requiring auth (e.g. from clear password or failed auth),
+        // we MUST prompt the user before sending the command.
+        if (authRequiredPorts.has(portId)) {
+            pendingAction = action
+            authPromptPassword.value = CONSTANTS.DEFAULT_PASSWORD // Pre-fill with default password
+            showPasswordModal.value = true
+            return
+        }
+
         const preferredPassword = getPreferredPassword(portId)
         const hasActivePassword = !!deviceStore.currentDevice.sessionPassword
         
@@ -61,11 +71,10 @@ export const useAuthStore = defineStore('auth', () => {
                 return
             }
 
-            if (!authRequiredPorts.has(portId)) {
-                deviceStore.currentDevice.sessionPassword = preferredPassword
-                action()
-                return
-            }
+            // This block is now protected by the authRequiredPorts check above
+            deviceStore.currentDevice.sessionPassword = preferredPassword
+            action()
+            return
         }
     
         pendingAction = action
@@ -76,7 +85,9 @@ export const useAuthStore = defineStore('auth', () => {
     const handlePasswordSubmit = async (password) => {
         if (deviceStore.currentDevice) {
             const portId = deviceStore.currentDevice.portId
-            const paddedPass = (password || authPromptPassword.value || CONSTANTS.DEFAULT_PASSWORD).padEnd(8, ' ')
+            const submittedPassword = password || authPromptPassword.value || CONSTANTS.DEFAULT_PASSWORD
+            const paddedPass = submittedPassword.padEnd(8, ' ')
+            console.log(`[handlePasswordSubmit] Saving padded password: '${paddedPass}' for port: ${portId}`)
             deviceStore.currentDevice.sessionPassword = paddedPass
             
             sessionPasswords.set(portId, paddedPass)

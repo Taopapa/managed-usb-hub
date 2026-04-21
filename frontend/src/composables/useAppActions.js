@@ -1,4 +1,4 @@
-import { ExportLogs, OpenSystemTerminal, QuitApp } from '../../wailsjs/go/main/App'
+import { ExportLogs, OpenSystemTerminal, QuitApp, ChangePassword } from '../../wailsjs/go/main/App'
 
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
@@ -11,7 +11,8 @@ export const useAppActions = ({
     autoSearchAction,
     selectDeviceAction,
     checkDeviceAuth,
-    loadHistoryLogs
+    loadHistoryLogs,
+    authStore
 }) => {
     const autoSearch = async (targetDevId) => {
         const targetId = typeof targetDevId === 'string' ? targetDevId : null
@@ -105,6 +106,21 @@ export const useAppActions = ({
         }
     }
 
+    const clearPassword = () => {
+        if (!currentDevice.value) return
+        const portId = currentDevice.value.portId
+        
+        const confirmClear = window.confirm("Are you sure you want to clear the saved password? You will be prompted to enter the password on your next action.")
+        if (!confirmClear) return
+
+        // Force the app to require password on the next action by marking it rejected
+        authStore.markPasswordRejected(portId)
+        
+        logStore.addLog('User Action', `Cleared saved session password`, portId)
+        
+        closeMenu()
+    }
+
     return {
         autoSearch,
         selectDevice,
@@ -115,6 +131,7 @@ export const useAppActions = ({
         exportLogs,
         showAbout,
         updateSelectedDeviceName,
-        updateSelectedDeviceUid
+        updateSelectedDeviceUid,
+        clearPassword
     }
 }
