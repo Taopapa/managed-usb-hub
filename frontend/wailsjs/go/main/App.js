@@ -26,6 +26,10 @@ export function GetDeviceName(arg1, arg2) {
   return window['go']['main']['App']['GetDeviceName'](arg1, arg2);
 }
 
+export function GetDeviceUID(arg1, arg2) {
+  return window['go']['main']['App']['GetDeviceUID'](arg1, arg2);
+}
+
 export function GetPortStatus(arg1, arg2) {
   return window['go']['main']['App']['GetPortStatus'](arg1, arg2);
 }
@@ -72,6 +76,10 @@ export function SendCommand(arg1, arg2) {
 
 export function SetDeviceName(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetDeviceName'](arg1, arg2, arg3);
+}
+
+export function SetDeviceUID(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetDeviceUID'](arg1, arg2, arg3);
 }
 
 export function SetPortStatus(arg1, arg2, arg3, arg4) {

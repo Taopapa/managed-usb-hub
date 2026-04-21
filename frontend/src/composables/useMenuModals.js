@@ -4,6 +4,7 @@ export const useMenuModals = ({ currentDevice, showAlert, closeMenu }) => {
     const showDocModal = ref(false)
     const showVBUSPowerModal = ref(false)
     const showDeviceNameModal = ref(false)
+    const showDeviceUidModal = ref(false)
 
     const ensureDeviceSelected = () => {
         if (currentDevice.value) {
@@ -24,6 +25,17 @@ export const useMenuModals = ({ currentDevice, showAlert, closeMenu }) => {
 
     const closeDeviceNameModal = () => {
         showDeviceNameModal.value = false
+    }
+
+    const openDeviceUidModal = () => {
+        if (!ensureDeviceSelected()) return
+
+        showDeviceUidModal.value = true
+        closeMenu()
+    }
+
+    const closeDeviceUidModal = () => {
+        showDeviceUidModal.value = false
     }
 
     const openVBUSPowerModal = () => {
@@ -50,8 +62,11 @@ export const useMenuModals = ({ currentDevice, showAlert, closeMenu }) => {
         showDocModal,
         showVBUSPowerModal,
         showDeviceNameModal,
+        showDeviceUidModal,
         openDeviceNameModal,
         closeDeviceNameModal,
+        openDeviceUidModal,
+        closeDeviceUidModal,
         openVBUSPowerModal,
         closeVBUSPowerModal,
         openDocumentationModal,

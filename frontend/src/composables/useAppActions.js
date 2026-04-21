@@ -94,6 +94,17 @@ export const useAppActions = ({
         }
     }
 
+    const updateSelectedDeviceUid = (uid) => {
+        if (!currentDevice.value) return
+        
+        currentDevice.value.deviceUid = uid || ''
+        
+        const matchedDevice = devices.value.find(d => d.portId === currentDevice.value.portId)
+        if (matchedDevice) {
+            matchedDevice.deviceUid = currentDevice.value.deviceUid
+        }
+    }
+
     return {
         autoSearch,
         selectDevice,
@@ -103,6 +114,7 @@ export const useAppActions = ({
         runCli,
         exportLogs,
         showAbout,
-        updateSelectedDeviceName
+        updateSelectedDeviceName,
+        updateSelectedDeviceUid
     }
 }

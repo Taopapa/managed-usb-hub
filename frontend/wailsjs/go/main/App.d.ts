@@ -14,6 +14,8 @@ export function ExportLogs(arg1:string,arg2:string):Promise<void>;
 
 export function GetDeviceName(arg1:string,arg2:string):Promise<string>;
 
+export function GetDeviceUID(arg1:string,arg2:string):Promise<string>;
+
 export function GetPortStatus(arg1:string,arg2:number):Promise<Record<number, boolean>>;
 
 export function GetStoredPassword(arg1:string):Promise<string>;
@@ -37,6 +39,8 @@ export function SavePortStates(arg1:string,arg2:string):Promise<string>;
 export function SendCommand(arg1:string,arg2:string):Promise<string>;
 
 export function SetDeviceName(arg1:string,arg2:string,arg3:string):Promise<string>;
+
+export function SetDeviceUID(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function SetPortStatus(arg1:string,arg2:string,arg3:Record<number, boolean>,arg4:number):Promise<string>;
 

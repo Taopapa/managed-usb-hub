@@ -216,14 +216,16 @@ const restoreDefaultAction = async (attempt = 0) => {
         if (!confirmed) return
     }
 
-    // Only force auth if the current session password is NOT the default password
+    // Always force auth if the current session password is NOT the default password
     let forceAuthForRestore = false;
-    if (attempt === 0 && currentDevice.value) {
+    if (currentDevice.value) {
         const currentPass = currentDevice.value.sessionPassword || CONSTANTS.DEFAULT_PASSWORD;
         if (currentPass !== CONSTANTS.DEFAULT_PASSWORD) {
-            // We want the user to type the password, so we clear the session password
-            authStore.clearSessionPassword(currentDevice.value.portId);
             forceAuthForRestore = true;
+            // Clear it only on the first attempt to force the prompt
+            if (attempt === 0) {
+                authStore.clearSessionPassword(currentDevice.value.portId);
+            }
         }
     }
 

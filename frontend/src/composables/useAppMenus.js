@@ -7,6 +7,7 @@ export const useAppMenus = ({
     quitApp,
     refreshHub,
     openDeviceNameModal,
+    openDeviceUidModal,
     openVBUSPowerModal,
     runCli,
     openDocumentationModal,
@@ -42,19 +43,28 @@ export const useAppMenus = ({
             items: [
                 {
                     key: 'device-name',
-                    label: 'Device Name',
+                    label: 'Set Device Name',
                     onClick: openDeviceNameModal,
                     disabled: !currentDevice.value
                 },
                 { key: 'sep-1', separator: true },
                 {
-                    key: 'vbus-power',
-                    label: 'Vbus Power Option',
-                    onClick: openVBUSPowerModal,
+                    key: 'device-uid',
+                    label: 'Set Device UID',
+                    onClick: openDeviceUidModal,
                     disabled: !currentDevice.value
                 },
                 { key: 'sep-2', separator: true },
-                { key: 'run-cli', label: 'Run CLI Command', onClick: runCli }
+                {
+                    key: 'vbus-power',
+                    label: 'Set Bus Power State',
+                    onClick: openVBUSPowerModal,
+                    disabled: !currentDevice.value
+                },
+                { key: 'sep-3', separator: true },
+                { key: 'run-cli', label: 'Run CLI Commands', onClick: runCli },
+                { key: 'sep-3', separator: true },
+                { key: 'clear-password', label: 'Clear Password', onClick: runCli },
             ]
         },
         {

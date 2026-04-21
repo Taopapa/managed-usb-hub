@@ -250,6 +250,16 @@ func (a *App) SetDeviceName(deviceID string, password string, name string) (stri
 	return a.hubManager.SetDeviceName(deviceID, password, name)
 }
 
+// GetDeviceUID sends the GI command
+func (a *App) GetDeviceUID(deviceID string, password string) (string, error) {
+	return a.hubManager.GetDeviceUID(deviceID, password)
+}
+
+// SetDeviceUID sends the SI command
+func (a *App) SetDeviceUID(deviceID string, password string, uid string) (string, error) {
+	return a.hubManager.SetDeviceUID(deviceID, password, uid)
+}
+
 // ChangePassword sends the CP command
 func (a *App) ChangePassword(deviceID string, oldPass string, newPass string) (string, error) {
 	return a.hubManager.ChangePassword(deviceID, oldPass, newPass)

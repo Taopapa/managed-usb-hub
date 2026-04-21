@@ -18,6 +18,7 @@ type JSONCommand struct {
 	STATES  string `json:"STATES,omitempty"` // Examples: "1:1,2", "H:F4", "F4,FF,FF,FF"
 	NEW_PSW string `json:"NEW_PSW,omitempty"`
 	NAME    string `json:"NAME,omitempty"`
+	UID     string `json:"UID,omitempty"`
 	FORMAT  string `json:"FORMAT,omitempty"`
 }
 
@@ -28,11 +29,25 @@ func padPassword(p string) string {
 	return fmt.Sprintf("%-8s", p)
 }
 
-// ProcessCommand executes the JSON command and returns a plain text response matching standard CLI.
+func errorResponse(msg string) string {
+	b, _ := json.Marshal(map[string]string{"RES": msg})
+	return string(b)
+}
+
+func successResponse(data map[string]interface{}) string {
+	if data == nil {
+		data = make(map[string]interface{})
+	}
+	data["RES"] = "OK"
+	b, _ := json.Marshal(data)
+	return string(b)
+}
+
+// ProcessCommand executes the JSON command and returns a JSON response string.
 func ProcessCommand(hm *hubmanager.HubManager, jsonStr string) string {
 	var req JSONCommand
 	if err := json.Unmarshal([]byte(jsonStr), &req); err != nil {
-		return "Error: Invalid JSON format\n"
+		return errorResponse("Invalid JSON format")
 	}
 
 	req.CMD = strings.ToUpper(strings.TrimSpace(req.CMD))
@@ -46,7 +61,7 @@ func ProcessCommand(hm *hubmanager.HubManager, jsonStr string) string {
 	switch req.CMD {
 	case "Q":
 		return handleQuery(hm, req)
-	case "S":
+	case "S", "SPST":
 		return handleSetState(hm, req, false)
 	case "F":
 		return handleSetState(hm, req, true)
@@ -56,10 +71,14 @@ func ProcessCommand(hm *hubmanager.HubManager, jsonStr string) string {
 		return handleGetState(hm, req)
 	case "W":
 		return handleSaveState(hm, req)
-	case "T", "U":
+	case "T":
 		return handleGetDeviceName(hm, req)
+	case "U":
+		return handleGetDeviceUID(hm, req)
 	case "X":
 		return handleSetDeviceName(hm, req)
+	case "Y":
+		return handleSetDeviceUID(hm, req)
 	case "B":
 		return handleSetVBUS(hm, req, true)
 	case "C":
@@ -69,7 +88,7 @@ func ProcessCommand(hm *hubmanager.HubManager, jsonStr string) string {
 	case "R":
 		return handleSimpleCommand(hm, req, "RT")
 	default:
-		return "Invalid Command!\n"
+		return errorResponse("Invalid Command!")
 	}
 }
 
@@ -121,6 +140,16 @@ func formatPortSummary(portStatusByte uint64, numPorts int) (string, string) {
 	return onStr, offStr
 }
 
+type HubInfo struct {
+	UID         string `json:"UID"`
+	Description string `json:"Description"`
+	PID         string `json:"PID"`
+	NPorts      string `json:"nPorts"`
+	PortStates  string `json:"Port_States"`
+	FWVer       string `json:"FW_Ver"`
+	COMNo       string `json:"COM_No"`
+}
+
 func handleQuery(hm *hubmanager.HubManager, req JSONCommand) string {
 	var devices []hubmanager.DeviceInfo
 	var err error
@@ -128,19 +157,34 @@ func handleQuery(hm *hubmanager.HubManager, req JSONCommand) string {
 	if req.COM != "" {
 		idResp, err := hm.SendCommand(req.COM, "?S")
 		if err != nil {
-			return "Failed to open port\n"
+			return errorResponse("Failed to open port")
 		}
 		idCheck := strings.ToUpper(strings.TrimSpace(idResp))
 		if idCheck == "" || (!strings.Contains(idCheck, "CENTOS") && !strings.Contains(idCheck, "C2G")) {
-			return "Failed to open port\n"
+			return errorResponse("Failed to open port")
 		}
 
 		gpResp, _ := hm.SendCommand(req.COM, "GW")
 		goResp, _ := hm.SendCommand(req.COM, "CM")
+		uidResp, _ := hm.GetDeviceUID(req.COM, req.PSW)
+		nameResp, _ := hm.GetDeviceName(req.COM, req.PSW)
+
+		if strings.HasPrefix(uidResp, "I+") {
+			uidResp = strings.TrimRight(uidResp[2:], " \r\n")
+		} else if strings.HasPrefix(uidResp, "I") {
+			uidResp = strings.TrimRight(uidResp[1:], " \r\n")
+		}
+		if strings.HasPrefix(nameResp, "B+") {
+			nameResp = strings.TrimRight(nameResp[2:], " \r\n")
+		} else if strings.HasPrefix(nameResp, "B") {
+			nameResp = strings.TrimRight(nameResp[1:], " \r\n")
+		}
 
 		devices = append(devices, hubmanager.DeviceInfo{
 			Path:          req.COM,
 			AsciiResponse: idResp,
+			DeviceUID:     strings.TrimSpace(uidResp),
+			DeviceName:    strings.TrimSpace(nameResp),
 			LedStatus:     fmt.Sprintf("%X", strings.TrimSpace(gpResp)),
 			GoData:        fmt.Sprintf("%X", strings.TrimSpace(goResp)),
 			RawLedStatus:  strings.TrimSpace(gpResp),
@@ -149,62 +193,65 @@ func handleQuery(hm *hubmanager.HubManager, req JSONCommand) string {
 	} else {
 		devices, err = hm.AutoSearchProbe()
 		if err != nil {
-			return fmt.Sprintf("Error: %v\n", err)
+			return errorResponse(fmt.Sprintf("Error: %v", err))
 		}
 	}
 
-	var sb strings.Builder
-	foundCount := 0
+	var infos []HubInfo
 	numPorts := 7 // Hardcoded to 7 based on main.go
 
 	for _, d := range devices {
-		foundCount++
 		statusHex := cleanStatusHex(d.RawLedStatus)
-		var portStatusByte uint64 = 0
-		if len(statusHex) >= 2 {
-			parsedByte, _ := strconv.ParseUint(statusHex[0:2], 16, 8)
-			portStatusByte = parsedByte
-		} else {
-			portStatusByte, _ = strconv.ParseUint(statusHex, 16, 32)
+
+		pid := "0002"
+		if strings.Contains(d.AsciiResponse, "CENTOS0002") {
+			pid = "0002"
 		}
 
-		onStr, offStr := formatPortSummary(portStatusByte, numPorts)
+		uid := d.DeviceUID
+		if uid == "" {
+			uid = "Unknown"
+		}
+
+		desc := d.DeviceName
+		if desc == "" {
+			desc = "7-port Managed USB Hub"
+		}
+
 		fwVer := extractFirmwareVersion(d.AsciiResponse)
 
-		// Match formatQueryDevice logic
-		if req.FORMAT == "formatted" || req.FORMAT == "F" {
-			sb.WriteString(fmt.Sprintf(
-				"Path=%s, Description=%q, Ports=%d, On=%s, Off=%s, FW=%s, GW=%s, CM=%s\n",
-				d.Path, d.AsciiResponse, numPorts, onStr, offStr, fwVer, statusHex, strings.TrimSpace(d.GoData),
-			))
-		} else {
-			output := fmt.Sprintf("%s, %d ports, On=%s, Off=%s, FW=%s", d.Path, numPorts, onStr, offStr, fwVer)
-			if req.COM == "" {
-				sb.WriteString(fmt.Sprintf(" %s\n", output))
-			} else {
-				sb.WriteString(output + "\n")
-			}
-		}
+		infos = append(infos, HubInfo{
+			UID:         uid,
+			Description: desc,
+			PID:         pid,
+			NPorts:      strconv.Itoa(numPorts),
+			PortStates:  statusHex,
+			FWVer:       fwVer,
+			COMNo:       d.Path,
+		})
 	}
 
-	if req.COM == "" {
-		sb.WriteString(fmt.Sprintf("%d C2G USB Hub Manager(s) Found.\n", foundCount))
+	if infos == nil {
+		infos = []HubInfo{}
 	}
 
-	return sb.String()
+	return successResponse(map[string]interface{}{
+		"HUBS": strconv.Itoa(len(infos)),
+		"INFO": infos,
+	})
 }
 
 func handleSetState(hm *hubmanager.HubManager, req JSONCommand, save bool) string {
 	if req.COM == "" {
-		return "Invalid Command!\n"
+		return errorResponse("Invalid Command!")
 	}
 	if req.STATES == "" {
-		return "Error: No states specified\n"
+		return errorResponse("No states specified")
 	}
 
 	currentStates, err := hm.GetPortStatus(req.COM, 7)
 	if err != nil {
-		return fmt.Sprintf("Error getting status: %v\n", err)
+		return errorResponse(fmt.Sprintf("Error getting status: %v", err))
 	}
 
 	statesInput := strings.TrimSpace(req.STATES)
@@ -222,8 +269,6 @@ func handleSetState(hm *hubmanager.HubManager, req JSONCommand, save bool) strin
 	if len(statesInput) == 2 && !strings.Contains(statesInput, ":") {
 		statesInput = "H:" + statesInput
 	}
-
-	var sb strings.Builder
 
 	for _, stateStr := range strings.Split(statesInput, ";") {
 		stateStr = strings.TrimSpace(stateStr)
@@ -253,7 +298,7 @@ func handleSetState(hm *hubmanager.HubManager, req JSONCommand, save bool) strin
 					currentStates[i] = ((val >> (i - 1)) & 1) != 0
 				}
 			} else {
-				sb.WriteString(fmt.Sprintf("Invalid binary format: %s\n", stateStr))
+				return errorResponse(fmt.Sprintf("Invalid binary format: %s", stateStr))
 			}
 			continue
 		}
@@ -267,7 +312,7 @@ func handleSetState(hm *hubmanager.HubManager, req JSONCommand, save bool) strin
 					currentStates[i] = ((val >> (i - 1)) & 1) != 0
 				}
 			} else {
-				sb.WriteString(fmt.Sprintf("Invalid hex format: %s\n", stateStr))
+				return errorResponse(fmt.Sprintf("Invalid hex format: %s", stateStr))
 			}
 			continue
 		}
@@ -290,54 +335,54 @@ func handleSetState(hm *hubmanager.HubManager, req JSONCommand, save bool) strin
 				}
 			}
 		} else {
-			sb.WriteString(fmt.Sprintf("Invalid format: %s\n", stateStr))
+			return errorResponse(fmt.Sprintf("Invalid format: %s", stateStr))
 		}
 	}
 
 	resp, err := hm.SetPortStatus(req.COM, req.PSW, currentStates, 7)
 	if err != nil {
-		sb.WriteString(fmt.Sprintf("Error: %v\n", err))
+		return errorResponse(fmt.Sprintf("Error: %v", err))
 	} else {
 		cleanResp := strings.TrimSpace(resp)
 		if idx := strings.IndexAny(cleanResp, "\r\n"); idx != -1 {
 			cleanResp = cleanResp[:idx]
 		}
 		if strings.Contains(cleanResp, "E01") {
-			return "password error\n"
+			return errorResponse("password error")
 		}
 		if strings.Contains(cleanResp, "E") && !strings.HasPrefix(cleanResp, "G") {
-			sb.WriteString(fmt.Sprintf("Result: %s\n", cleanResp))
+			return errorResponse(fmt.Sprintf("Result: %s", cleanResp))
 		}
 	}
 
 	if save {
 		resp, err := hm.SavePortStates(req.COM, req.PSW)
 		if err != nil {
-			sb.WriteString(fmt.Sprintf("Error saving: %v\n", err))
+			return errorResponse(fmt.Sprintf("Error saving: %v", err))
 		} else {
 			cleanResp := strings.TrimSpace(resp)
 			if idx := strings.IndexAny(cleanResp, "\r\n"); idx != -1 {
 				cleanResp = cleanResp[:idx]
 			}
 			if strings.Contains(cleanResp, "E01") {
-				sb.WriteString("password error (on save)\n")
+				return errorResponse("password error (on save)")
 			} else if strings.Contains(cleanResp, "E") && !strings.HasPrefix(cleanResp, "G") && !strings.Contains(strings.ToUpper(cleanResp), "OK") && !strings.HasPrefix(cleanResp, "SS") {
-				sb.WriteString(fmt.Sprintf("Result(Save): %s\n", cleanResp))
+				return errorResponse(fmt.Sprintf("Result(Save): %s", cleanResp))
 			}
 		}
 	}
 
-	return sb.String()
+	return successResponse(nil)
 }
 
 func handleGetState(hm *hubmanager.HubManager, req JSONCommand) string {
 	if req.COM == "" {
-		return "Invalid Command!\n"
+		return errorResponse("Invalid Command!")
 	}
 
 	resp, err := hm.SendCommand(req.COM, "GW")
 	if err != nil {
-		return fmt.Sprintf("Error: %v\n", err)
+		return errorResponse(fmt.Sprintf("Error: %v", err))
 	}
 
 	cleanStatus := strings.TrimSpace(resp)
@@ -363,7 +408,7 @@ func handleGetState(hm *hubmanager.HubManager, req JSONCommand) string {
 
 	format := req.FORMAT
 	if format == "binary" || format == "B" || format == "-B" {
-		return fmt.Sprintf("%08b\n", portStatusByte)
+		return successResponse(map[string]interface{}{"Port_States": fmt.Sprintf("%08b", portStatusByte)})
 	}
 
 	if format == "hex" || format == "H" || format == "-H" {
@@ -378,79 +423,121 @@ func handleGetState(hm *hubmanager.HubManager, req JSONCommand) string {
 				sb.WriteString(cleanStatus[i:])
 			}
 		}
-		return sb.String() + "\n"
+		return successResponse(map[string]interface{}{"Port_States": sb.String()})
 	}
 
 	onStr, offStr := formatPortSummary(portStatusByte, 7)
-	return fmt.Sprintf("On=%s, Off=%s\n", onStr, offStr)
+	return successResponse(map[string]interface{}{
+		"On":  onStr,
+		"Off": offStr,
+	})
 }
 
 func handleSaveState(hm *hubmanager.HubManager, req JSONCommand) string {
 	if req.COM == "" {
-		return "Invalid Command!\n"
+		return errorResponse("Invalid Command!")
 	}
 
 	resp, err := hm.SavePortStates(req.COM, req.PSW)
 	if err != nil {
-		return fmt.Sprintf("Error: %v\n", err)
+		return errorResponse(fmt.Sprintf("Error: %v", err))
 	}
 
 	if strings.Contains(resp, "E01") {
-		return "password error\n"
+		return errorResponse("password error")
 	}
 
 	if strings.Contains(resp, "E") && !strings.Contains(resp, "G") && !strings.Contains(strings.ToUpper(resp), "OK") && !strings.HasPrefix(resp, "SV") {
-		return fmt.Sprintf("Result: %s\n", resp)
+		return errorResponse(fmt.Sprintf("Result: %s", resp))
 	}
 
-	return ""
+	return successResponse(nil)
 }
 
 func handleChangePassword(hm *hubmanager.HubManager, req JSONCommand) string {
 	if req.COM == "" {
-		return "Invalid Command!\n"
+		return errorResponse("Invalid Command!")
 	}
 	if req.NEW_PSW == "" {
-		return "Error: Missing password arguments\n"
+		return errorResponse("Missing password arguments")
 	}
 	if len(req.NEW_PSW) < 3 || len(req.NEW_PSW) > 8 {
-		return "Error: Password must be 3 to 8 characters\n"
+		return errorResponse("Password must be 3 to 8 characters")
 	}
 
 	resp, err := hm.ChangePassword(req.COM, req.PSW, req.NEW_PSW)
 	if err != nil {
-		return fmt.Sprintf("Error: %v\n", err)
+		return errorResponse(fmt.Sprintf("Error: %v", err))
 	}
 
 	if strings.Contains(resp, "E01") {
-		return "password error\n"
+		return errorResponse("password error")
 	}
 
 	if strings.Contains(resp, "E") && !strings.Contains(resp, "G") {
 		if !strings.HasPrefix(resp, "G") && !strings.Contains(strings.ToUpper(resp), "OK") {
-			return fmt.Sprintf("Result: %s\n", resp)
+			return errorResponse(fmt.Sprintf("Result: %s", resp))
 		}
 	}
 
-	return ""
+	return successResponse(nil)
+}
+
+func handleGetDeviceUID(hm *hubmanager.HubManager, req JSONCommand) string {
+	if req.COM == "" {
+		return errorResponse("Invalid Command!")
+	}
+
+	resp, err := hm.GetDeviceUID(req.COM, req.PSW)
+	if err != nil {
+		return errorResponse(fmt.Sprintf("Error: %v", err))
+	}
+
+	if strings.Contains(resp, "E01") {
+		return errorResponse("password error")
+	}
+
+	if strings.Contains(resp, "E") && !strings.HasPrefix(resp, "G") && !strings.HasPrefix(resp, "I") {
+		return errorResponse("password error")
+	}
+
+	if idx := strings.IndexAny(resp, "\r\n"); idx != -1 {
+		resp = resp[:idx]
+	}
+
+	var sb strings.Builder
+	for _, ch := range resp {
+		if ch >= 32 && ch <= 126 {
+			sb.WriteRune(ch)
+		}
+	}
+	resp = sb.String()
+
+	if strings.HasPrefix(resp, "I+") {
+		resp = strings.TrimRight(resp[2:], " ")
+	} else if strings.HasPrefix(resp, "I") {
+		resp = strings.TrimRight(resp[1:], " ")
+	}
+
+	return successResponse(map[string]interface{}{"UID": resp})
 }
 
 func handleGetDeviceName(hm *hubmanager.HubManager, req JSONCommand) string {
 	if req.COM == "" {
-		return "Invalid Command!\n"
+		return errorResponse("Invalid Command!")
 	}
 
 	resp, err := hm.GetDeviceName(req.COM, req.PSW)
 	if err != nil {
-		return fmt.Sprintf("Error: %v\n", err)
+		return errorResponse(fmt.Sprintf("Error: %v", err))
 	}
 
 	if strings.Contains(resp, "E01") {
-		return "password error\n"
+		return errorResponse("password error")
 	}
 
 	if strings.Contains(resp, "E") && !strings.HasPrefix(resp, "G") && !strings.HasPrefix(resp, "B") {
-		return "password error\n"
+		return errorResponse("password error")
 	}
 
 	if idx := strings.IndexAny(resp, "\r\n"); idx != -1 {
@@ -475,57 +562,81 @@ func handleGetDeviceName(hm *hubmanager.HubManager, req JSONCommand) string {
 		resp = "C2G 7-port Managed USB HUB"
 	}
 
-	return fmt.Sprintf("%s\n", resp)
+	return successResponse(map[string]interface{}{"NAME": resp})
 }
 
 func handleSetDeviceName(hm *hubmanager.HubManager, req JSONCommand) string {
 	if req.COM == "" {
-		return "Invalid Command!\n"
+		return errorResponse("Invalid Command!")
 	}
 	if req.NAME == "" {
-		return "Error: Missing device name argument\n"
+		return errorResponse("Missing device name argument")
 	}
 
 	resp, err := hm.SetDeviceName(req.COM, req.PSW, req.NAME)
 	if err != nil {
-		return fmt.Sprintf("Error: %v\n", err)
+		return errorResponse(fmt.Sprintf("Error: %v", err))
 	}
 
 	if strings.Contains(resp, "E01") {
-		return "password error\n"
+		return errorResponse("password error")
 	}
 
 	if strings.Contains(resp, "E") && !strings.HasPrefix(resp, "G") {
-		return fmt.Sprintf("Result: %s\n", resp)
+		return errorResponse(fmt.Sprintf("Result: %s", resp))
 	}
 
-	return ""
+	return successResponse(nil)
+}
+
+func handleSetDeviceUID(hm *hubmanager.HubManager, req JSONCommand) string {
+	if req.COM == "" {
+		return errorResponse("Invalid Command!")
+	}
+	if req.UID == "" {
+		return errorResponse("Missing device uid argument")
+	}
+
+	resp, err := hm.SetDeviceUID(req.COM, req.PSW, req.UID)
+	if err != nil {
+		return errorResponse(fmt.Sprintf("Error: %v", err))
+	}
+
+	if strings.Contains(resp, "E01") {
+		return errorResponse("password error")
+	}
+
+	if strings.Contains(resp, "E") && !strings.HasPrefix(resp, "G") {
+		return errorResponse(fmt.Sprintf("Result: %s", resp))
+	}
+
+	return successResponse(nil)
 }
 
 func handleSetVBUS(hm *hubmanager.HubManager, req JSONCommand, enabled bool) string {
 	if req.COM == "" {
-		return "Invalid Command!\n"
+		return errorResponse("Invalid Command!")
 	}
 
 	resp, err := hm.SetVBUSPower(req.COM, req.PSW, enabled)
 	if err != nil {
-		return fmt.Sprintf("Error: %v\n", err)
+		return errorResponse(fmt.Sprintf("Error: %v", err))
 	}
 
 	if strings.Contains(resp, "E01") {
-		return "password error\n"
+		return errorResponse("password error")
 	}
 
 	if strings.Contains(resp, "E") && !strings.HasPrefix(resp, "G") {
-		return fmt.Sprintf("Result: %s\n", resp)
+		return errorResponse(fmt.Sprintf("Result: %s", resp))
 	}
 
-	return ""
+	return successResponse(nil)
 }
 
 func handleSimpleCommand(hm *hubmanager.HubManager, req JSONCommand, cmdPrefix string) string {
 	if req.COM == "" {
-		return "Invalid Command!\n"
+		return errorResponse("Invalid Command!")
 	}
 
 	var resp string
@@ -539,11 +650,11 @@ func handleSimpleCommand(hm *hubmanager.HubManager, req JSONCommand, cmdPrefix s
 	}
 
 	if err != nil {
-		return fmt.Sprintf("Error: %v\n", err)
+		return errorResponse(fmt.Sprintf("Error: %v", err))
 	}
 
 	if strings.Contains(resp, "E01") {
-		return "password error\n"
+		return errorResponse("password error")
 	}
 
 	isActionCmd := (cmdPrefix == "RS" || cmdPrefix == "RT")
@@ -553,9 +664,9 @@ func handleSimpleCommand(hm *hubmanager.HubManager, req JSONCommand, cmdPrefix s
 			looksLikeSuccess = true
 		}
 		if !looksLikeSuccess && resp != "" {
-			return fmt.Sprintf("Result: %s\n", resp)
+			return errorResponse(fmt.Sprintf("Result: %s", resp))
 		}
 	}
 
-	return ""
+	return successResponse(nil)
 }

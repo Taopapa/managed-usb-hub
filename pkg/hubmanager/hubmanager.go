@@ -35,6 +35,7 @@ type DeviceInfo struct {
 	ProbeResponse string `json:"probeResponse"`
 	AsciiResponse string `json:"asciiResponse"`
 	DeviceName    string `json:"deviceName"`
+	DeviceUID     string `json:"deviceUid"`
 	LedStatus     string `json:"ledStatus"` // Hex encoded
 	GoData        string `json:"goData"`    // Hex encoded
 	RawLedStatus  string `json:"-"`         // Raw ASCII, not sent to frontend
@@ -452,6 +453,26 @@ func (hm *HubManager) SetDeviceName(portPath string, password string, name strin
 	return hm.SendCommand(portPath, cmd)
 }
 
+// GetDeviceUID sends the GI command.
+func (hm *HubManager) GetDeviceUID(portPath string, password string) (string, error) {
+	if password == "" {
+		password = config.DefaultPassword
+	}
+
+	cmd := fmt.Sprintf("GI%s", password)
+	return hm.SendCommand(portPath, cmd)
+}
+
+// SetDeviceUID sends the SI command.
+func (hm *HubManager) SetDeviceUID(portPath string, password string, uid string) (string, error) {
+	if password == "" {
+		password = config.DefaultPassword
+	}
+
+	cmd := fmt.Sprintf("SI%s%s", password, uid)
+	return hm.SendCommand(portPath, cmd)
+}
+
 // ChangePassword sends the MD command
 func (hm *HubManager) ChangePassword(portPath string, oldPass string, newPass string) (string, error) {
 	// Need to pad passwords to 8 characters
@@ -541,11 +562,36 @@ func (hm *HubManager) probeDevice(path string) DeviceInfo {
 				}
 			}
 
+			deviceUid := ""
+			hm.drain(p, path)
+			uidResp, uidErr := hm.sendAndRead(p, path, fmt.Sprintf("GI%s", config.DefaultPassword), time.Duration(config.ProbeTimeoutMs)*time.Millisecond)
+			if uidErr == nil {
+				if idx := strings.IndexAny(uidResp, "\r\n"); idx != -1 {
+					uidResp = uidResp[:idx]
+				}
+
+				var sb strings.Builder
+				for _, ch := range uidResp {
+					if ch >= 32 && ch <= 126 {
+						sb.WriteRune(ch)
+					}
+				}
+
+				normalizedUidResp := sb.String()
+
+				if strings.HasPrefix(normalizedUidResp, "I+") {
+					deviceUid = strings.TrimRight(normalizedUidResp[2:], " ")
+				} else if strings.HasPrefix(normalizedUidResp, "I") {
+					deviceUid = strings.TrimRight(normalizedUidResp[1:], " ")
+				}
+			}
+
 			return DeviceInfo{
 				Path:          stripDevPrefix(path),
 				AsciiResponse: idAscii,
 				ProbeResponse: idAscii,
 				DeviceName:    deviceName,
+				DeviceUID:     deviceUid,
 				LedStatus:     gpDataHex,
 				GoData:        goDataHex,
 				RawLedStatus:  gpDataRaw,

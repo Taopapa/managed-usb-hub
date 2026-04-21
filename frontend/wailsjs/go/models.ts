@@ -5,6 +5,7 @@ export namespace hubmanager {
 	    probeResponse: string;
 	    asciiResponse: string;
 	    deviceName: string;
+	    deviceUid: string;
 	    ledStatus: string;
 	    goData: string;
 	    success: boolean;
@@ -19,6 +20,7 @@ export namespace hubmanager {
 	        this.probeResponse = source["probeResponse"];
 	        this.asciiResponse = source["asciiResponse"];
 	        this.deviceName = source["deviceName"];
+	        this.deviceUid = source["deviceUid"];
 	        this.ledStatus = source["ledStatus"];
 	        this.goData = source["goData"];
 	        this.success = source["success"];

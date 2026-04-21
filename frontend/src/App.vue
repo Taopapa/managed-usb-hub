@@ -6,6 +6,7 @@ import PasswordModal from './components/PasswordModal.vue'
 import SetPasswordModal from './components/SetPasswordModal.vue'
 import DocumentationModal from './components/DocumentationModal.vue'
 import DeviceNameModal from './components/DeviceNameModal.vue'
+import DeviceUidModal from './components/DeviceUidModal.vue'
 import VBUSPowerModal from './components/VBUSPowerModal.vue'
 import DeviceList from './components/DeviceList.vue'
 import DeviceInfo from './components/DeviceInfo.vue'
@@ -74,8 +75,11 @@ const {
     showDocModal,
     showVBUSPowerModal,
     showDeviceNameModal,
+    showDeviceUidModal,
     openDeviceNameModal,
     closeDeviceNameModal,
+    openDeviceUidModal,
+    closeDeviceUidModal,
     openVBUSPowerModal,
     closeVBUSPowerModal,
     openDocumentationModal,
@@ -94,7 +98,8 @@ const {
     runCli,
     exportLogs,
     showAbout,
-    updateSelectedDeviceName
+    updateSelectedDeviceName,
+    updateSelectedDeviceUid
 } = useAppActions({
     currentDevice,
     devices,
@@ -114,6 +119,7 @@ const menus = useAppMenus({
     quitApp,
     refreshHub,
     openDeviceNameModal,
+    openDeviceUidModal,
     openVBUSPowerModal,
     runCli,
     openDocumentationModal,
@@ -193,7 +199,8 @@ watch(selectedTab, (newVal) => {
     <!-- Status Bar -->
     <div class="status-bar">
         <div class="status-left">
-            <!-- Ready -->
+            <span v-if="currentDevice?.deviceUid">UID: {{ currentDevice.deviceUid }}</span>
+            <span v-else></span>
         </div>
         <div class="status-right">{{ devicesFoundCount }} hub{{ devicesFoundCount !== 1 ? 's' : '' }} online</div>
     </div>
@@ -226,6 +233,14 @@ watch(selectedTab, (newVal) => {
         :device="currentDevice"
         @close="closeDeviceNameModal"
         @updated="updateSelectedDeviceName"
+    />
+
+    <!-- Device UID Modal -->
+    <DeviceUidModal
+        :show="showDeviceUidModal"
+        :device="currentDevice"
+        @close="closeDeviceUidModal"
+        @updated="updateSelectedDeviceUid"
     />
 
     <!-- VBUS Power Modal -->

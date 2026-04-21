@@ -179,7 +179,7 @@ func main() {
 			fmt.Println("Invalid Command!")
 			return
 		}
-		handleGetDeviceName(port, os.Args[2:])
+		handleGetDeviceUID(port, os.Args[2:])
 	case "/D":
 		if port == "" {
 			fmt.Println("Invalid Command!")
@@ -194,13 +194,13 @@ func main() {
 		handleSimpleCommand(port, "RT", os.Args[2:])
 	case "/J":
 		if len(os.Args) < 3 {
-			fmt.Println("Error: Missing JSON string argument")
+			fmt.Println(`{"RES":"Error: Missing JSON string argument"}`)
 			return
 		}
 		jsonStr := os.Args[2]
 		resp := jsonapi.ProcessCommand(hm, jsonStr)
 		if resp != "" {
-			fmt.Print(resp)
+			fmt.Println(resp)
 		}
 	default:
 		fmt.Println("Invalid Command!")
@@ -326,7 +326,7 @@ func printUsage() {
 	}
 	fmt.Println("")
 
-	fmt.Println("    /U        read Device Name (password is required)")
+	fmt.Println("    /U        read Device UID (password is required)")
 	if isWindows {
 		fmt.Printf("    Usage:    %s.exe /U:COM [pass]\n", exeName)
 	} else {
@@ -363,6 +363,28 @@ func printUsage() {
 		fmt.Printf("    Usage:    %s.exe /J '{\"CMD\":\"Q\"}'\n", exeName)
 	} else {
 		fmt.Printf("    Usage:    ./%s /J '{\"CMD\":\"Q\"}'\n", exeName)
+	}
+	fmt.Println("")
+
+	fmt.Println("Examples: To control port 3 of the hub, follow the steps below:")
+	if isWindows {
+		fmt.Printf("    %s.exe /Q  (auto search all the hubs connected)\n", exeName)
+		fmt.Printf("    %s.exe /S:COM3 0:3  (turn OFF port 3, assumed COM3 is found by the /Q command)\n", exeName)
+		fmt.Printf("    %s.exe /S:COM3 1:3  (turn ON port 3)\n", exeName)
+	} else {
+		fmt.Printf("    ./%s /Q  (auto search all the hubs connected)\n", exeName)
+		fmt.Printf("    ./%s /S:PORT 0:3  (turn OFF port 3, assumed PORT is found by the /Q command)\n", exeName)
+		fmt.Printf("    ./%s /S:PORT 1:3  (turn ON port 3)\n", exeName)
+	}
+	fmt.Println("")
+
+	fmt.Println("Examples to control ports with input JSON string")
+	if isWindows {
+		fmt.Printf("    ./%s /J \"{\\\"CMD\\\":\\\"Q\\\"}\"  (Query all Hubs)\n", exeName)
+		fmt.Printf("    ./%s /J \"{\\\"CMD\\\":\\\"SPST\\\",\\\"COM\\\":\\\"COM3\\\",\\\"PSW\\\":\\\"pass\\\",\\\"STATES\\\":\\\"F4,FF,FF,FF\\\"}\"  (turn Off ports 1,2,4)\n", exeName)
+	} else {
+		fmt.Printf("    ./%s /J '{\"CMD\":\"Q\"}'  (Query all Hubs)\n", exeName)
+		fmt.Printf("    ./%s /J '{\"CMD\":\"SPST\",\"COM\":\"COM3\",\"PSW\":\"pass\",\"STATES\":\"F4,FF,FF,FF\"}'  (turn Off ports 1,2,4)\n", exeName)
 	}
 	fmt.Println("")
 }
@@ -998,6 +1020,51 @@ func handleChangePassword(port string, args []string) {
 				fmt.Printf("Result: %s\n", resp)
 			}
 		}
+	}
+}
+
+func handleGetDeviceUID(port string, args []string) {
+	pass, _ := getPassword(args)
+
+	// Pad password to 8 chars
+	pass = padPassword(pass)
+
+	resp, err := hm.GetDeviceUID(port, pass)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+	} else {
+		// Handle E01 specifically
+		if strings.Contains(resp, "E01") {
+			fmt.Println("password error")
+			return
+		}
+
+		// Check for E02 or other errors
+		if strings.Contains(resp, "E") && !strings.HasPrefix(resp, "G") && !strings.HasPrefix(resp, "I") {
+			fmt.Println("password error")
+			return
+		}
+
+		// Clean up the response like frontend does
+		if idx := strings.IndexAny(resp, "\r\n"); idx != -1 {
+			resp = resp[:idx]
+		}
+
+		var sb strings.Builder
+		for _, ch := range resp {
+			if ch >= 32 && ch <= 126 {
+				sb.WriteRune(ch)
+			}
+		}
+		resp = sb.String()
+
+		if strings.HasPrefix(resp, "I+") {
+			resp = strings.TrimRight(resp[2:], " ")
+		} else if strings.HasPrefix(resp, "I") {
+			resp = strings.TrimRight(resp[1:], " ")
+		}
+
+		fmt.Printf("%s\n", resp)
 	}
 }
 

@@ -11,6 +11,7 @@ function hexToAscii(hex) {
 
 export const parseDevice = (r) => {
     const deviceName = (r.deviceName || '').replace(/[^\x20-\x7E]/g, '').trimEnd()
+    const deviceUid = (r.deviceUid || '').replace(/[^\x20-\x7E]/g, '').trimEnd()
 
     // Parse Version
     let version = "v1.0"
@@ -93,6 +94,7 @@ export const parseDevice = (r) => {
         portId: r.path,
         portName: r.path, // e.g., COM5
         deviceName: deviceName,
+        deviceUid: deviceUid,
         displayName: deviceName ? `${deviceName} (${r.path})` : `C2G 7-port Managed USB HUB (${r.path})`,
         description: 'C2G 7-port Managed USB HUB',
         firmwareVersion: version,
