@@ -1,4 +1,5 @@
 import { ExportLogs, OpenSystemTerminal, QuitApp, ChangePassword } from '../../wailsjs/go/main/App'
+import { useUIStore } from '../stores/ui'
 
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
@@ -12,8 +13,10 @@ export const useAppActions = ({
     selectDeviceAction,
     checkDeviceAuth,
     loadHistoryLogs,
+    logStore,
     authStore
 }) => {
+    const uiStore = useUIStore()
     const autoSearch = async (targetDevId) => {
         const targetId = typeof targetDevId === 'string' ? targetDevId : null
 
@@ -106,19 +109,23 @@ export const useAppActions = ({
         }
     }
 
-    const clearPassword = () => {
+    const clearPassword = async () => {
         if (!currentDevice.value) return
         const portId = currentDevice.value.portId
         
-        const confirmClear = window.confirm("Are you sure you want to clear the saved password? You will be prompted to enter the password on your next action.")
+        closeMenu()
+
+        const confirmClear = await uiStore.showConfirm(
+            "Are you sure you want to clear the saved password? ",
+            "Clear Saved Password",
+            { confirmButtonText: 'Clear', cancelButtonText: 'Cancel' }
+        )
         if (!confirmClear) return
 
-        // Force the app to require password on the next action by marking it rejected
-        authStore.markPasswordRejected(portId)
+        // Just clear the session memory. Let the natural flow (send -> fail -> prompt) take over
+        authStore.clearSessionPassword(portId)
         
         logStore.addLog('User Action', `Cleared saved session password`, portId)
-        
-        closeMenu()
     }
 
     return {

@@ -1,5 +1,7 @@
 <script setup>
 import { defineProps, defineEmits, ref, watch } from 'vue'
+import { useUIStore } from '../stores/ui'
+const uiStore = useUIStore()
 
 const props = defineProps({
   show: Boolean,
@@ -20,7 +22,15 @@ watch(() => props.show, (newVal) => {
 })
 
 const submit = () => {
-  emit('submit', password.value || props.initialPassword || '')
+  if(!password.value) {
+    uiStore.showAlert('Please enter the password.')
+    return
+  }
+  if(password.value.length < 3 || password.value.length > 8) {
+    uiStore.showAlert('Password must be 3-8 characters.')
+    return
+  }
+  emit('submit', password.value)
 }
 
 const cancel = () => {

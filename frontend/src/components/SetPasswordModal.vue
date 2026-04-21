@@ -1,5 +1,7 @@
 <script setup>
 import { defineProps, defineEmits, ref, watch } from 'vue'
+import { useUIStore } from '../stores/ui'
+const uiStore = useUIStore()
 
 const DEFAULT_PASSWORD = 'pass    '
 
@@ -23,8 +25,24 @@ watch(() => props.show, (newVal) => {
 })
 
 const submit = () => {
+  if(!oldPass.value) {
+    uiStore.showAlert('Please enter the old password.')
+    return
+  }
+  if(!newPass.value) {
+    uiStore.showAlert('Please enter the new password.')
+    return
+  }
+  if(newPass.value.length < 3 || newPass.value.length > 8) {
+    uiStore.showAlert('New password must be 3-8 characters.')
+    return
+  }
+  if(!confirmPass.value) {
+    uiStore.showAlert('Please confirm the new password.')
+    return
+  }
   emit('submit', {
-    old: oldPass.value || props.initialOld || DEFAULT_PASSWORD,
+    old: oldPass.value,
     new: newPass.value,
     confirm: confirmPass.value
   })

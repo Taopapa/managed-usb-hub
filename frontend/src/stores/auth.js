@@ -53,9 +53,9 @@ export const useAuthStore = defineStore('auth', () => {
         }
         const portId = deviceStore.currentDevice.portId
         
-        // If it's explicitly marked as requiring auth (e.g. from clear password or failed auth),
-        // we MUST prompt the user before sending the command.
+        // We only force a prompt if authRequiredPorts is explicitly marked (which happens on failed auth)
         if (authRequiredPorts.has(portId)) {
+            console.log(`[executeWithAuth] Port ${portId} is marked in authRequiredPorts. Forcing prompt.`)
             pendingAction = action
             authPromptPassword.value = CONSTANTS.DEFAULT_PASSWORD // Pre-fill with default password
             showPasswordModal.value = true
@@ -194,11 +194,17 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     const clearSessionPassword = async (portId) => {
+        if (!portId) return
+
+        console.log(`[clearSessionPassword] Clearing password cache for port ${portId}`)
         sessionPasswords.delete(portId)
-        authRequiredPorts.delete(portId)
-        if (deviceStore.currentDevice && deviceStore.currentDevice.portId === portId) {
-            deviceStore.currentDevice.sessionPassword = CONSTANTS.DEFAULT_PASSWORD
+        authRequiredPorts.delete(portId) // Ensure it's not marked as rejected
+
+        if (deviceStore.currentDevice?.portId === portId) {
+            deviceStore.currentDevice.sessionPassword = '' // Clear this completely so hasActivePassword is false
         }
+
+        authPromptPassword.value = CONSTANTS.DEFAULT_PASSWORD
         await SetStoredPassword(portId, "")
     }
 
@@ -213,6 +219,7 @@ export const useAuthStore = defineStore('auth', () => {
         cancelPassword,
         checkDeviceAuth,
         clearSessionPassword,
-        markPasswordRejected
+        markPasswordRejected,
+        getPreferredPassword
     }
 })
